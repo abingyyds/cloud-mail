@@ -87,11 +87,14 @@ onBeforeUnmount(() => {
   top: 0;
   left: 0;
   overflow: hidden;
+  background:
+      radial-gradient(circle at 18% 0%, rgba(15, 118, 110, 0.08), transparent 26%),
+      linear-gradient(180deg, var(--sm-background), var(--sm-background));
 }
 
 .main-container {
   min-height: 100%;
-  background: var(--el-bg-color);
+  background: var(--sm-background);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -101,9 +104,15 @@ onBeforeUnmount(() => {
 }
 
 .el-header {
-  background: var(--el-bg-color);
-  border-bottom: solid 1px var(--el-border-color);
-  padding: 0 0 0 0;
+  height: 64px;
+  background: color-mix(in srgb, var(--sm-background) 88%, transparent);
+  border-bottom: solid 1px var(--sm-border);
+  padding: 0 14px 0 0;
+  backdrop-filter: blur(18px);
+  @media (max-width: 767px) {
+    height: 58px;
+    padding-right: 6px;
+  }
 }
 
 .overlay-show {

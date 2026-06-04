@@ -626,24 +626,29 @@ function close() {
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1000;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(10px);
+  animation: compose-backdrop 180ms ease-out both;
 
   .write-box {
-    background: var(--el-bg-color);
+    background: var(--sm-card);
     width: min(1367px, calc(100% - 80px));
-    box-shadow: var(--el-box-shadow-light);
-    border: 1px solid var(--el-border-color-light);
+    box-shadow: var(--sm-shadow-lg);
+    border: 1px solid var(--sm-border);
     transition: var(--el-transition-duration);
-    padding: 15px;
-    border-radius: 8px;
+    padding: 0;
+    border-radius: 16px;
     display: grid;
     grid-template-rows: auto 1fr;
     overflow: hidden;
+    animation: compose-in 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
     @media (max-width: 1024px) {
       width: 100%;
       height: 100%;
       border-radius: 0;
       border: 0;
-      padding-top: 10px;
     }
 
     @media (min-width: 1025px) {
@@ -653,28 +658,44 @@ function close() {
     .title {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 10px;
+      min-height: 58px;
+      margin-bottom: 0;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--sm-border);
+      background: var(--sm-card-muted);
 
       .title-left {
         align-items: center;
         display: grid;
         grid-template-columns: auto auto auto 1fr;
+        min-width: 0;
       }
 
       .title-text {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 9px;
+        color: var(--sm-brand-foreground);
+        background: var(--sm-brand);
+        box-shadow: inset 0 1px rgba(255, 255, 255, 0.16);
       }
 
       .sender {
         margin-left: 8px;
+        color: var(--sm-muted-foreground);
+        font-size: 12px;
       }
 
       .sender-name {
         margin-left: 8px;
-        font-weight: bold;
+        font-weight: 720;
       }
 
       .send-email {
-        color: #999896;
+        color: var(--sm-muted-foreground);
         margin-left: 5px;
         white-space: nowrap;
         text-overflow: ellipsis;
@@ -692,22 +713,52 @@ function close() {
       height: 100%;
       display: grid;
       grid-template-rows: auto auto 1fr auto;
-      gap: 15px;
+      gap: 12px;
+      padding: 16px;
 
       .item-title {
+        color: var(--sm-muted-foreground);
+        font-size: 12px;
+        font-weight: 700;
+        padding-right: 8px;
       }
 
       .button-item {
         display: grid;
         grid-template-columns: auto auto 1fr auto;
+        align-items: center;
+        gap: 8px;
+        min-height: 42px;
+        padding-top: 4px;
+        border-top: 1px solid var(--sm-border);
 
         .att-add {
           cursor: pointer;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 8px;
+          color: var(--sm-muted-foreground);
         }
 
         .att-clear {
           cursor: pointer;
-          margin-left: 10px;
+          margin-left: 0;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 8px;
+          color: var(--sm-muted-foreground);
+        }
+
+        .att-add:hover,
+        .att-clear:hover {
+          color: var(--sm-foreground);
+          background: var(--sm-muted);
         }
 
         .att-list {
@@ -727,10 +778,12 @@ function close() {
             grid-template-columns: auto 1fr auto auto;
             gap: 5px;
             height: 32px;
-            font-size: 14px;
-            padding: 4px 5px;
-            background: var(--light-ill);
-            border-radius: 4px;
+            font-size: 12px;
+            padding: 5px 8px;
+            background: var(--sm-card-muted);
+            border: 1px solid var(--sm-border);
+            border-radius: 999px;
+            align-items: center;
             .att-filename {
               white-space: nowrap;
               text-overflow: ellipsis;
@@ -742,6 +795,33 @@ function close() {
     }
   }
 
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .send,
+  .write-box {
+    animation: none !important;
+  }
+}
+
+@keyframes compose-backdrop {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes compose-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .email-row {

@@ -7,6 +7,15 @@ import {cvtR2Url} from "@/utils/convert.js";
 const routes = [
     {
         path: '/',
+        name: 'home',
+        component: () => import('@/views/home/index.vue'),
+        meta: {
+            public: true,
+            title: 'SMmails'
+        }
+    },
+    {
+        path: '/app',
         name: 'layout',
         redirect: '/inbox',
         component: () => import('@/layout/index.vue'),
@@ -57,7 +66,10 @@ const routes = [
     {
         path: '/login',
         name: 'login',
-        component: () => import('@/views/login/index.vue')
+        component: () => import('@/views/login/index.vue'),
+        meta: {
+            public: true
+        }
     },
     {
         path: '/test',
@@ -100,7 +112,7 @@ router.beforeEach((to, from, next) => {
 
     const token = localStorage.getItem('token')
 
-    if (!token && to.name !== 'login') {
+    if (!token && !to.meta.public) {
         return next({name: 'login'})
     }
 
@@ -110,7 +122,7 @@ router.beforeEach((to, from, next) => {
     }
 
     if (token && to.name === 'login') {
-        return next(from.path)
+        return next({name: 'email'})
     }
 
     next()

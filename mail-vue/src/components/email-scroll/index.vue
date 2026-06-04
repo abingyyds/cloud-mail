@@ -917,17 +917,22 @@ function loadData() {
 .email-container {
   display: grid;
   grid-template-rows: auto 1fr;
-  padding: 0;
+  padding: 12px;
   font-size: 14px;
   color: var(--el-text-color-primary);
   overflow: hidden;
   height: 100%;
+  background: var(--sm-background);
 }
 
 .scroll {
-  margin: 0;
+  margin: 10px 0 0;
   height: 100%;
   overflow: hidden;
+  border: 1px solid var(--sm-border);
+  border-radius: 12px;
+  background: var(--sm-card);
+  box-shadow: var(--sm-shadow-xs);
 
   .virtual {
     will-change: scroll-position;
@@ -983,16 +988,19 @@ function loadData() {
 
 :deep(.email-row) {
   display: flex;
-  padding: 8px 0;
+  padding: 8px 12px;
   justify-content: space-between;
-  box-shadow: var(--header-actions-border);
+  box-shadow: inset 0 -1px 0 0 var(--sm-border);
   cursor: pointer;
   align-items: center;
   position: relative;
-  transition: background 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-  height: 48px;
+  transition: background 0.15s ease-in-out, box-shadow 0.15s ease-in-out, transform 0.15s ease-in-out;
+  height: 56px;
+  background: var(--sm-card);
   @media (max-width: 1366px) {
-    height: 83px;
+    height: 92px;
+    align-items: flex-start;
+    padding-top: 12px;
   }
 
   @media (pointer: coarse) {
@@ -1000,9 +1008,9 @@ function loadData() {
     user-select: none;
   }
   &.all-email {
-    height: 65px;
+    height: 74px;
     @media (max-width: 1366px) {
-      height: 132px;
+      height: 138px;
     }
   }
   .user-info {
@@ -1043,15 +1051,15 @@ function loadData() {
 
   .checkbox {
     display: flex;
-    padding-left: 15px;
-    padding-right: 20px;
+    padding-left: 2px;
+    padding-right: 14px;
     justify-content: center;
   }
 
   .all-email-checkbox {
     display: flex;
-    padding-left: 15px;
-    padding-right: 20px;
+    padding-left: 2px;
+    padding-right: 14px;
     justify-content: center;
     @media (min-width: 1367px) {
       justify-content: start;
@@ -1072,6 +1080,7 @@ function loadData() {
     flex: 1;
     display: grid;
     grid-template-columns: 240px 1fr;
+    min-width: 0;
     @media (max-width: 1366px) {
       padding-right: 15px;
     }
@@ -1084,6 +1093,8 @@ function loadData() {
       color: var(--el-text-color-primary);
       display: grid;
       grid-template-columns: auto 1fr auto;
+      align-items: center;
+      min-width: 0;
 
       .email-status {
         display: flex;
@@ -1099,6 +1110,8 @@ function loadData() {
         display: grid;
         gap: 5px;
         grid-template-columns: auto 1fr;
+        min-width: 0;
+        font-weight: 680;
 
         > span:last-child {
           display: flex;
@@ -1130,6 +1143,7 @@ function loadData() {
       .phone-time {
         font-weight: normal;
         font-size: 12px;
+        color: var(--sm-muted-foreground);
         @media (min-width: 1367px) {
           display: none;
         }
@@ -1163,6 +1177,7 @@ function loadData() {
     .email-text {
       display: grid;
       grid-template-columns: auto 1fr;
+      min-width: 0;
       @media (max-width: 1366px) {
         grid-template-columns: 1fr;
       }
@@ -1184,8 +1199,11 @@ function loadData() {
         max-width: 170px;
         height: 20px;
         line-height: 20px;
-        font-size: 14px;
-        color: var(--el-text-color-primary);
+        padding: 0 7px;
+        border-radius: 999px;
+        font-size: 12px;
+        color: var(--sm-accent);
+        background: var(--sm-accent-soft);
         overflow: hidden;
         white-space: nowrap;
         text-overflow: ellipsis;
@@ -1205,6 +1223,7 @@ function loadData() {
         text-overflow: ellipsis;
         padding-left: 10px;
         color: var(--email-scroll-content-color);
+        font-size: 13px;
         @media (max-width: 1366px) {
           padding-left: 0;
           margin-top: 0;
@@ -1235,6 +1254,11 @@ function loadData() {
   &:hover {
     background-color: var(--email-hover-background);
     z-index: 0;
+    transform: translateX(2px);
+  }
+
+  &[data-checked="true"] {
+    background: var(--sm-accent-soft);
   }
 
   /*&[data-checked="true"] {
@@ -1249,7 +1273,8 @@ function loadData() {
 
 .pc-star {
   display: flex;
-  width: 40px;
+  width: 34px;
+  color: var(--sm-muted-foreground);
 }
 
 @media (max-width: 1366px) {
@@ -1279,19 +1304,39 @@ function loadData() {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 15px;
-  padding: 3px 15px;
-  box-shadow: var(--header-actions-border);
+  gap: 12px;
+  min-height: 44px;
+  padding: 5px 12px;
+  border: 1px solid var(--sm-border);
+  border-radius: 12px;
+  background: var(--sm-card);
+  box-shadow: var(--sm-shadow-xs);
 
   .header-left {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     position: relative;
-    column-gap: 20px;
+    column-gap: 8px;
     row-gap: 8px;
     padding-left: 2px;
-    color: var(--el-text-color-primary);;
+    color: var(--sm-muted-foreground);
+
+    .icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      padding: 6px;
+      border-radius: 8px;
+      color: var(--sm-muted-foreground);
+    }
+
+    .icon:hover {
+      color: var(--sm-foreground);
+      background: var(--sm-muted);
+    }
   }
 
   .header-right {
@@ -1299,11 +1344,13 @@ function loadData() {
     grid-template-columns: auto auto;
     align-items: start;
     height: 100%;
-    color: var(--el-text-color-primary);;
+    color: var(--sm-muted-foreground);
 
     .email-count {
       white-space: nowrap;
-      margin-top: 6px;
+      margin-top: 7px;
+      font-size: 12px;
+      font-weight: 650;
     }
   }
 
@@ -1348,9 +1395,9 @@ function loadData() {
 }
 
 .unread {
-  height: 6px;
-  width: 6px;
-  background: var(--el-color-primary);
+  height: 7px;
+  width: 7px;
+  background: var(--sm-accent);
   margin-bottom: 2px;
   margin-right: 5px;
   border-radius: 50%;

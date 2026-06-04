@@ -2,10 +2,13 @@
   <el-scrollbar class="scroll">
     <div>
       <div class="title" >
-        <Icon icon="mdi:email-outline" width="24" height="24" />
-        <div>{{settingStore.settings.title}}</div>
+        <SmLogo compact />
+        <div>
+          <strong>SMmails</strong>
+          <small>{{settingStore.settings.title || 'SmartMails'}}</small>
+        </div>
       </div>
-      <el-menu :collapse="false" text-color="#fff" active-text-color="#fff" style="margin-top: 10px">
+      <el-menu :collapse="false" style="margin-top: 10px">
         <el-menu-item @click="router.push({name: 'email'})" index="email"
                       :class="route.meta.name === 'email' ? 'choose-item' : ''">
           <Icon icon="hugeicons:mailbox-01" width="20" height="20" />
@@ -74,6 +77,7 @@ import router from "@/router/index.js";
 import { useRoute } from "vue-router";
 import {Icon} from "@iconify/vue";
 import {useSettingStore} from "@/store/setting.js";
+import SmLogo from "@/components/sm-logo/index.vue";
 
 const settingStore = useSettingStore();
 const route = useRoute();
@@ -83,26 +87,45 @@ const route = useRoute();
 <style lang="scss" scoped>
 
 .title {
-  margin: 15px 10px;
-  height: 45px;
-  border-radius: 6px;
+  margin: 12px;
+  min-height: 54px;
+  border-radius: 10px;
   display: flex;
   position: relative;
-  font-size: 16px;
-  font-weight: bold;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  color: #ffffff;
-  background: linear-gradient(135deg, #1890ff, #3a80dd);
+  justify-content: flex-start;
+  gap: 10px;
+  color: var(--sm-foreground);
+  background: var(--sm-card);
+  border: 1px solid var(--sm-border);
+  box-shadow: var(--sm-shadow-xs);
   transition: all 0.3s ease;
-  max-width: 240px;
-  padding: 0 10px;
+  max-width: 236px;
+  padding: 9px;
+
   > div {
+    display: grid;
+    gap: 1px;
+    overflow: hidden;
+    min-width: 0;
+  }
+
+  strong,
+  small {
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    max-width: calc(240px - 20px - 30px);
+  }
+
+  strong {
+    font-size: 14px;
+    line-height: 1.1;
+  }
+
+  small {
+    color: var(--sm-muted-foreground);
+    font-size: 11px;
+    font-weight: 500;
   }
 
   :deep(.el-icon) {
@@ -122,27 +145,54 @@ const route = useRoute();
 
 
 .manage-title {
-  margin-top: 10px;
-  padding-left: 20px;
-  color: #fff;
+  margin: 18px 12px 8px;
+  padding: 0 8px;
+  color: var(--sm-muted-foreground);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .el-menu-item {
-  margin: 5px 10px !important;
-  border-radius: 6px;
+  margin: 3px 12px !important;
+  border-radius: 8px;
   height: 36px;
-  padding: 10px !important;
+  padding: 9px 10px !important;
+  color: var(--sm-muted-foreground) !important;
+  font-weight: 560;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+
+  svg {
+    color: currentColor;
+  }
 }
 
 .choose-item {
-  font-weight: bold;
-  background: rgba(255, 255, 255, 0.08) !important;
-  backdrop-filter: blur(4px);
+  position: relative;
+  font-weight: 720;
+  color: var(--sm-foreground) !important;
+  background: var(--sm-card) !important;
+  border: 1px solid var(--sm-border);
+  box-shadow: var(--sm-shadow-xs);
+}
+
+.choose-item::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 4px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--sm-accent);
+  transform: translateY(-50%);
 }
 
 @media (hover: hover) {
   .el-menu-item:hover {
-    background: rgba(255, 255, 255, 0.08) !important;
+    color: var(--sm-foreground) !important;
+    background: var(--sm-muted) !important;
   }
 }
 
@@ -166,6 +216,7 @@ const route = useRoute();
 .el-menu {
   border-right: 0;
   width: 260px;
+  padding-bottom: 20px;
 }
 
 :deep(.el-divider__text) {

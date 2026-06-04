@@ -2,11 +2,19 @@
   <div class="header" :class="!hasPerm('email:send') ? 'not-send' : ''">
     <div class="header-btn">
       <hanburger @click="changeAside"></hanburger>
-      <span class="breadcrumb-item">{{ $t(route.meta.title) }}</span>
+      <div class="page-title">
+        <span class="breadcrumb-item">{{ $t(route.meta.title) }}</span>
+        <small>Agent-driven workspace</small>
+      </div>
+    </div>
+    <div class="agent-status">
+      <Icon icon="lucide:bot" width="16" height="16" />
+      <span>Agent Ready</span>
     </div>
     <div v-perm="'email:send'" class="writer-box" @click="openSend">
       <div class="writer">
         <Icon icon="material-symbols:edit-outline-sharp" width="22" height="22"/>
+        <span>Compose</span>
       </div>
     </div>
     <div class="toolbar">
@@ -361,11 +369,12 @@ function formatName(email) {
   display: grid;
   height: 100%;
   gap: 10px;
-  grid-template-columns: auto auto 1fr;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
 }
 
 .header.not-send {
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
 }
 
 .writer-box {
@@ -376,15 +385,27 @@ function formatName(email) {
   margin-left: 5px;
 
   .writer {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    color: #ffffff;
-    background: linear-gradient(135deg, #1890ff, #3a80dd);
+    min-width: 40px;
+    height: 36px;
+    border-radius: 8px;
+    color: var(--sm-brand-foreground);
+    background: var(--sm-brand);
+    border: 1px solid var(--sm-brand);
     transition: all 0.3s ease;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 8px;
+    padding: 0 13px;
+    box-shadow: var(--sm-shadow-xs);
+
+    span {
+      font-size: 13px;
+      font-weight: 680;
+      @media (max-width: 767px) {
+        display: none;
+      }
+    }
 
     .writer-text {
       margin-left: 15px;
@@ -401,28 +422,64 @@ function formatName(email) {
   min-width: 0;
 }
 
+.page-title {
+  display: grid;
+  justify-items: start;
+  gap: 1px;
+  min-width: 0;
+
+  small {
+    color: var(--sm-muted-foreground);
+    font-size: 11px;
+    line-height: 1.2;
+    @media (max-width: 767px) {
+      display: none;
+    }
+  }
+}
+
 .breadcrumb-item {
-  font-weight: bold;
-  font-size: 14px;
+  font-weight: 730;
+  font-size: 15px;
   color: var(--el-text-color-primary);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
+.agent-status {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--sm-border);
+  border-radius: 999px;
+  color: var(--sm-accent);
+  background: var(--sm-accent-soft);
+  font-weight: 680;
+
+  @media (max-width: 900px) {
+    display: none;
+  }
+}
+
 .toolbar {
   display: flex;
   justify-content: end;
-  gap: 15px;
+  gap: 8px;
   @media (max-width: 767px) {
-    gap: 10px;
+    gap: 5px;
   }
 
   .icon-item {
     align-self: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 4px;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    color: var(--sm-muted-foreground);
+    border: 1px solid transparent;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -430,7 +487,9 @@ function formatName(email) {
   }
 
   .icon-item:hover {
-    background: var(--base-fill);
+    color: var(--sm-foreground);
+    background: var(--sm-muted);
+    border-color: var(--sm-border);
   }
 
   .notice {
@@ -452,15 +511,17 @@ function formatName(email) {
     cursor: pointer;
 
     .avatar-text {
-      background: var(--el-bg-color);
+      background: var(--sm-card);
       color: var(--el-text-color-primary);
-      height: 30px;
-      width: 30px;
+      height: 34px;
+      width: 34px;
       display: flex;
       justify-content: center;
       align-items: center;
       border-radius: 8px;
-      border: 1px solid var(--dark-border);
+      border: 1px solid var(--sm-border);
+      box-shadow: var(--sm-shadow-xs);
+      font-weight: 720;
     }
 
     .setting-icon {

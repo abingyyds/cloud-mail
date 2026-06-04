@@ -218,14 +218,20 @@ const handleDelete = () => {
 .box {
   height: 100%;
   overflow: hidden;
+  padding: 12px;
+  background: var(--sm-background);
 }
 
 .header-actions {
-  padding: 9px 15px;
+  min-height: 44px;
+  padding: 5px 12px;
   display: flex;
   align-items: center;
-  gap: 20px;
-  box-shadow: var(--header-actions-border);
+  gap: 8px;
+  border: 1px solid var(--sm-border);
+  border-radius: 12px;
+  background: var(--sm-card);
+  box-shadow: var(--sm-shadow-xs);
   font-size: 18px;
   .star {
     display: flex;
@@ -235,29 +241,44 @@ const handleDelete = () => {
   }
   .icon {
     cursor: pointer;
+    width: 30px;
+    height: 30px;
+    padding: 6px;
+    border-radius: 8px;
+    color: var(--sm-muted-foreground);
+  }
+
+  .icon:hover {
+    color: var(--sm-foreground);
+    background: var(--sm-muted);
   }
 }
 
 
 .scrollbar {
-  height: calc(100% - 38px);
+  height: calc(100% - 54px);
   width: 100%;
+  margin-top: 10px;
+  border: 1px solid var(--sm-border);
+  border-radius: 12px;
+  background: var(--sm-card);
+  box-shadow: var(--sm-shadow-xs);
 }
 
 .container {
   font-size: 14px;
-  padding-left: 20px;
-  padding-right: 20px;
-  padding-top: 10px;
+  padding: 24px;
   @media (max-width: 1023px) {
-    padding-left: 15px;
-    padding-right: 15px;
+    padding: 16px;
   }
 
   .email-title {
-    font-size: 20px;
-    font-weight: bold;
-    margin-bottom: 10px;
+    max-width: 980px;
+    font-size: clamp(24px, 3vw, 34px);
+    line-height: 1.15;
+    font-weight: 780;
+    letter-spacing: 0;
+    margin-bottom: 18px;
   }
 
   .htm-scrollbar {
@@ -270,10 +291,11 @@ const handleDelete = () => {
     .att {
       margin-top: 30px;
       margin-bottom: 30px;
-      border: 1px solid var(--light-border-color);
+      border: 1px solid var(--sm-border);
       padding: 14px;
-      border-radius: 6px;
+      border-radius: 12px;
       width: fit-content;
+      background: var(--sm-card-muted);
       .att-box {
         min-width: min(410px,calc(100vw - 60px));
         max-width: 600px;
@@ -296,9 +318,10 @@ const handleDelete = () => {
         div {
           align-self: center;
         }
-        background: var(--light-ill);
-        padding: 5px 7px;
-        border-radius: 4px;
+        background: var(--sm-card);
+        border: 1px solid var(--sm-border);
+        padding: 8px 10px;
+        border-radius: 9px;
         align-self: start;
         display: grid;
         grid-template-columns: auto 1fr auto auto;
@@ -343,15 +366,16 @@ const handleDelete = () => {
 
     .email-info {
 
-      border-bottom: 1px solid var(--light-border-color);
-      margin-bottom: 20px;
-      padding-bottom: 8px;
+      border-bottom: 1px solid var(--sm-border);
+      margin-bottom: 22px;
+      padding-bottom: 16px;
       @media (max-width: 1024px) {
         margin-bottom: 15px;
       }
       .date {
-        color: var(--regular-text-color);
+        color: var(--sm-muted-foreground);
         margin-bottom: 6px;
+        font-size: 12px;
       }
 
       .email-msg {
@@ -365,7 +389,7 @@ const handleDelete = () => {
         margin-bottom: 6px;
 
         .send-name {
-          color: var(--regular-text-color);
+          color: var(--sm-muted-foreground);
           display: flex;
           flex-wrap: wrap;
         }
@@ -383,19 +407,21 @@ const handleDelete = () => {
           word-break: break-word;
         }
         span:nth-child(2) {
-          color: var(--regular-text-color);
+          color: var(--sm-muted-foreground);
         }
       }
 
       .send-source {
         white-space: nowrap;
         font-weight: bold;
+        color: var(--sm-foreground);
         padding-right: 10px;
       }
 
       .source {
         white-space: nowrap;
         font-weight: bold;
+        color: var(--sm-foreground);
         padding-right: 10px;
       }
     }

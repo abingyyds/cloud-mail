@@ -518,29 +518,40 @@ path[fill="#ffdda1"] {
 <style scoped lang="scss">
 .account-box {
 
-  border-right: 1px solid var(--el-border-color) !important;
-  background-color: var(--el-bg-color);
+  border-right: 1px solid var(--sm-border) !important;
+  background-color: var(--sm-card-muted);
   height: 100%;
   overflow: hidden;
 
   .head-opt {
     display: flex;
     align-items: center;
-    height: 38px;
-    box-shadow: var(--header-actions-border);
-    padding-left: 10px;
-    padding-right: 10px;
+    gap: 8px;
+    height: 44px;
+    border-bottom: 1px solid var(--sm-border);
+    padding-left: 12px;
+    padding-right: 12px;
 
     .icon {
       cursor: pointer;
+      width: 30px;
+      height: 30px;
+      padding: 6px;
+      border-radius: 8px;
+      color: var(--sm-muted-foreground);
+    }
+
+    .icon:hover {
+      color: var(--sm-foreground);
+      background: var(--sm-muted);
     }
 
     .refresh {
-      margin-left: 10px;
+      margin-left: 0;
     }
 
     .add {
-      margin-left: 2px;
+      margin-left: 0;
     }
 
     .head-opt:not(.add) .refresh {
@@ -550,7 +561,7 @@ path[fill="#ffdda1"] {
 
   .scrollbar {
     width: 100%;
-    height: calc(100% - 38px);
+    height: calc(100% - 44px);
     overflow: auto;
     @media (max-width: 767px) {
       height: calc(100% - 98px);
@@ -578,17 +589,25 @@ path[fill="#ffdda1"] {
   }
 
   .item {
-    background-color: var(--el-bg-color);
-    border-radius: 8px;
-    padding: 12px 10px;
-    margin-bottom: 10px;
+    background-color: var(--sm-card);
+    border: 1px solid var(--sm-border);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 8px;
     margin-left: 10px;
     margin-right: 10px;
     cursor: pointer;
+    box-shadow: var(--sm-shadow-xs);
+    transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+
+    &:hover {
+      border-color: var(--sm-border-strong);
+      background: var(--extra-light-fill);
+    }
 
     .account {
-      font-weight: 600;
-      margin-bottom: 20px;
+      font-weight: 700;
+      margin-bottom: 18px;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
@@ -598,7 +617,7 @@ path[fill="#ffdda1"] {
       display: flex;
       justify-content: space-between;
       font-size: 12px;
-      color: #888;
+      color: var(--sm-muted-foreground);
 
       .settings {
         display: flex;
@@ -623,6 +642,8 @@ path[fill="#ffdda1"] {
 
   .item-choose {
     background: var(--choose-account-background);
+    border-color: var(--sm-foreground);
+    box-shadow: 0 0 0 1px var(--sm-foreground) inset;
   }
 }
 
