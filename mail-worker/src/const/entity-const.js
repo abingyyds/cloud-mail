@@ -14,6 +14,28 @@ export const accountConst = {
 	}
 }
 
+export const apiKeyConst = {
+	status: {
+		OPEN: 0,
+		CLOSE: 1
+	}
+}
+
+export const senderIdentityConst = {
+	status: {
+		OPEN: 0,
+		CLOSE: 1
+	},
+	verifyStatus: {
+		VERIFIED: 0,
+		PENDING: 1
+	},
+	type: {
+		PLATFORM: 'platform',
+		CUSTOM: 'custom'
+	}
+}
+
 export const roleConst = {
 	isDefault: {
 		CLOSE: 0,

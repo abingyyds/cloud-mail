@@ -98,22 +98,26 @@
 
 ## 开放 API：验证码与自动邮件
 
-先用管理员账号生成 public token：
+推荐客户在 **开发者接入** 页面创建自己的 API Key 和发信身份。SMTP、Resend、Cloudflare Email Sending 是平台管理员配置的底层通道，客户不需要配置 SMTP。
+
+客户侧接入流程：
+
+1. 登录平台，进入 **开发者接入**
+2. 创建 API Key，复制保存，明文只显示一次；可设置每日、每月、总发送额度，`0` 表示不限
+3. 添加发信身份
+   - 平台内邮箱会自动通过验证
+   - 自定义域名邮箱会生成 `_smmails.<domain>` 的 DNS TXT 验证 token，点击验证通过后才允许发信
+4. 在客户自己的产品后端调用 `/api/open/sendCode`
+5. 在 **开发者接入** 查看 API Key 用量、客户总额度和发信日志
+
+发送验证码示例：
 
 ```bash
-curl -X POST https://你的域名/api/public/genToken \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"管理员密码"}'
-```
-
-之后在请求头传入 `Authorization: <token>`。发验证码：
-
-```bash
-curl -X POST https://你的域名/api/public/sendCode \
-  -H "Authorization: <token>" \
+curl -X POST https://你的域名/api/open/sendCode \
+  -H "Authorization: Bearer smm_xxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "fromEmail": "no-reply@example.com",
+    "fromEmail": "no-reply@yourdomain.com",
     "to": "user@example.org",
     "productName": "Example App",
     "purpose": "登录",
@@ -124,8 +128,8 @@ curl -X POST https://你的域名/api/public/sendCode \
 也可以用 `code` 传入业务系统自己生成的验证码。接口会返回 `code`、`emailId`、`status/statusText`，业务系统可保存 `emailId` 后查询发送状态：
 
 ```bash
-curl -X POST https://你的域名/api/public/sendStatus \
-  -H "Authorization: <token>" \
+curl -X POST https://你的域名/api/open/sendStatus \
+  -H "Authorization: Bearer smm_xxx" \
   -H "Content-Type: application/json" \
   -d '{"emailIds":[123]}'
 ```
@@ -133,8 +137,8 @@ curl -X POST https://你的域名/api/public/sendStatus \
 发送通知：
 
 ```bash
-curl -X POST https://你的域名/api/public/sendNotice \
-  -H "Authorization: <token>" \
+curl -X POST https://你的域名/api/open/sendNotice \
+  -H "Authorization: Bearer smm_xxx" \
   -H "Content-Type: application/json" \
   -d '{
     "fromEmail": "no-reply@example.com",
@@ -148,14 +152,39 @@ curl -X POST https://你的域名/api/public/sendNotice \
 发送自定义自动邮件：
 
 ```bash
-curl -X POST https://你的域名/api/public/sendAutoMail \
-  -H "Authorization: <token>" \
+curl -X POST https://你的域名/api/open/sendAutoMail \
+  -H "Authorization: Bearer smm_xxx" \
   -H "Content-Type: application/json" \
   -d '{
     "fromEmail": "no-reply@example.com",
     "to": "user@example.org",
     "subject": "服务通知",
     "text": "这是一封由业务系统触发的自动邮件。"
+  }'
+```
+
+`fromEmail` 必须先在 **开发者接入** 添加为发信身份并验证通过。客户后台的 API 发信日志只展示当前客户自己的 API Key 发信记录。
+
+兼容管理员全局 public token：
+
+```bash
+curl -X POST https://你的域名/api/public/genToken \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"管理员密码"}'
+```
+
+之后在请求头传入 `Authorization: <token>`。旧版 public token 接口仍支持：
+
+```bash
+curl -X POST https://你的域名/api/public/sendNotice \
+  -H "Authorization: <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromEmail": "no-reply@example.com",
+    "to": ["user@example.org"],
+    "productName": "Example App",
+    "title": "订单已发货",
+    "body": "你的订单已经发货，请留意物流更新。"
   }'
 ```
 
@@ -227,4 +256,3 @@ cloud-mail
 ## 交流
 
 [Telegram](https://t.me/cloud_mail_tg)
-

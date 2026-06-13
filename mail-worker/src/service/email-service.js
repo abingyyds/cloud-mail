@@ -163,7 +163,10 @@ const emailService = {
 			content, //邮件内容
 			subject, //邮件标题
 			code = '', //验证码/交易邮件元数据
-			attachments = [] //附件
+			attachments = [], //附件
+			apiKeyId = 0,
+			fromEmail,
+			accountEmail
 		} = params;
 
 		const {
@@ -247,15 +250,20 @@ const emailService = {
 		const resendToken = resendTokens[domain];
 		const useCloudflareEmail = !!c.env.email;
 		const useSmtp = smtpStatus === settingConst.smtpStatus.OPEN && !!smtpHost && !!smtpSender;
+		const mailFromEmail = fromEmail || accountEmail || accountRow.email;
+		const deliveryAccountEmail = accountEmail || mailFromEmail;
+		const deliveryDomain = emailUtils.getDomain(deliveryAccountEmail);
+		const sameDeliveryAccount = deliveryAccountEmail.toLowerCase() === accountRow.email.toLowerCase();
+		const deliveryResendToken = resendTokens[deliveryDomain] || (sameDeliveryAccount ? resendToken : '');
 
 		//如果接收方存在站外邮箱，又没有发信服务
-		if (!useCloudflareEmail && !resendToken && !useSmtp && !allInternal) {
+		if (!useCloudflareEmail && !deliveryResendToken && !useSmtp && !allInternal) {
 			throw new BizError(t('noSendProvider'));
 		}
 
 		//没有发件人名字自动截取
 		if (!name) {
-			name = emailUtils.getName(accountRow.email);
+			name = emailUtils.getName(fromEmail || accountRow.email);
 		}
 
 		let emailRow = {
@@ -281,7 +289,7 @@ const emailService = {
 			if (useCloudflareEmail) {
 				sendResult = await this.sendByCloudflareEmail(c, {
 					name,
-					accountEmail: accountRow.email,
+					accountEmail: deliveryAccountEmail,
 					receiveEmail,
 					subject,
 					text,
@@ -290,10 +298,10 @@ const emailService = {
 					sendType,
 					messageId: emailRow.messageId
 				});
-			} else if (resendToken) {
-				sendResult = await this.sendByResend(resendToken, {
+			} else if (deliveryResendToken) {
+				sendResult = await this.sendByResend(deliveryResendToken, {
 					name,
-					accountEmail: accountRow.email,
+					accountEmail: deliveryAccountEmail,
 					receiveEmail,
 					subject,
 					text,
@@ -315,7 +323,7 @@ const emailService = {
 					secure: smtpSecure
 				}, {
 					name,
-					accountEmail: accountRow.email,
+					accountEmail: deliveryAccountEmail,
 					receiveEmail,
 					subject,
 					text,
@@ -341,13 +349,14 @@ const emailService = {
 
 		//封装数据保存到数据库
 		const emailData = {};
-		emailData.sendEmail = accountRow.email;
+		emailData.sendEmail = mailFromEmail;
 		emailData.name = name;
 		emailData.subject = subject;
 		emailData.code = code || '';
 		emailData.content = html;
 		emailData.text = text;
 		emailData.accountId = accountId;
+		emailData.apiKeyId = Number(apiKeyId) || 0;
 		emailData.status = useCloudflareEmail ? emailConst.status.DELIVERED : emailConst.status.SENT;
 		emailData.type = emailConst.type.SEND;
 		emailData.userId = userId;

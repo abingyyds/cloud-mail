@@ -31,8 +31,80 @@ const dbInit = {
 		await this.v3_0DB(c);
 		await this.v3_1DB(c);
 		await this.v3_2DB(c);
+		await this.v3_3DB(c);
 		await settingService.refresh(c);
 		return c.text('success');
+	},
+
+	async v3_3DB(c) {
+		const SQL_LIST = [
+			`CREATE TABLE IF NOT EXISTS api_key (
+				api_key_id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL,
+				name TEXT NOT NULL DEFAULT '',
+				key_hash TEXT NOT NULL,
+				key_prefix TEXT NOT NULL DEFAULT '',
+				status INTEGER NOT NULL DEFAULT 0,
+				day_limit INTEGER NOT NULL DEFAULT 0,
+				month_limit INTEGER NOT NULL DEFAULT 0,
+				total_limit INTEGER NOT NULL DEFAULT 0,
+				day_used INTEGER NOT NULL DEFAULT 0,
+				month_used INTEGER NOT NULL DEFAULT 0,
+				total_used INTEGER NOT NULL DEFAULT 0,
+				quota_date TEXT NOT NULL DEFAULT '',
+				quota_month TEXT NOT NULL DEFAULT '',
+				last_use_time DATETIME,
+				create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+				is_del INTEGER NOT NULL DEFAULT 0
+			);`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_api_key_hash ON api_key(key_hash);`,
+			`CREATE INDEX IF NOT EXISTS idx_api_key_user_id ON api_key(user_id);`,
+			`CREATE TABLE IF NOT EXISTS sender_identity (
+				sender_identity_id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL,
+				email TEXT NOT NULL COLLATE NOCASE,
+				name TEXT NOT NULL DEFAULT '',
+				domain TEXT NOT NULL DEFAULT '',
+				type TEXT NOT NULL DEFAULT 'platform',
+				verify_token TEXT NOT NULL DEFAULT '',
+				verify_status INTEGER NOT NULL DEFAULT 0,
+				status INTEGER NOT NULL DEFAULT 0,
+				create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+				is_del INTEGER NOT NULL DEFAULT 0
+			);`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_sender_identity_email ON sender_identity(email COLLATE NOCASE);`,
+			`CREATE INDEX IF NOT EXISTS idx_sender_identity_user_id ON sender_identity(user_id);`,
+			`CREATE INDEX IF NOT EXISTS idx_email_api_key_id ON email(api_key_id);`
+		];
+
+		await Promise.all(SQL_LIST.map(async (sql) => {
+			try {
+				await c.env.db.prepare(sql).run();
+			} catch (e) {
+				console.warn(`跳过数据：${e.message}`);
+			}
+		}));
+
+		const ADD_COLUMN_SQL_LIST = [
+			`ALTER TABLE api_key ADD COLUMN day_limit INTEGER NOT NULL DEFAULT 0;`,
+			`ALTER TABLE api_key ADD COLUMN month_limit INTEGER NOT NULL DEFAULT 0;`,
+			`ALTER TABLE api_key ADD COLUMN total_limit INTEGER NOT NULL DEFAULT 0;`,
+			`ALTER TABLE api_key ADD COLUMN day_used INTEGER NOT NULL DEFAULT 0;`,
+			`ALTER TABLE api_key ADD COLUMN month_used INTEGER NOT NULL DEFAULT 0;`,
+			`ALTER TABLE api_key ADD COLUMN total_used INTEGER NOT NULL DEFAULT 0;`,
+			`ALTER TABLE api_key ADD COLUMN quota_date TEXT NOT NULL DEFAULT '';`,
+			`ALTER TABLE api_key ADD COLUMN quota_month TEXT NOT NULL DEFAULT '';`,
+			`ALTER TABLE email ADD COLUMN api_key_id INTEGER NOT NULL DEFAULT 0;`,
+			`CREATE INDEX IF NOT EXISTS idx_email_api_key_id ON email(api_key_id);`
+		];
+
+		await Promise.all(ADD_COLUMN_SQL_LIST.map(async (sql) => {
+			try {
+				await c.env.db.prepare(sql).run();
+			} catch (e) {
+				console.warn(`跳过字段：${e.message}`);
+			}
+		}));
 	},
 
 	async v3_2DB(c) {

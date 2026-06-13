@@ -172,7 +172,7 @@ class SmtpClient {
 	}
 
 	async send(mail) {
-		await this.command(`MAIL FROM:<${mail.from}>`, [250]);
+		await this.command(`MAIL FROM:<${mail.envelopeFrom || mail.from}>`, [250]);
 		for (const to of mail.to) {
 			await this.command(`RCPT TO:<${to}>`, [250, 251]);
 		}
@@ -285,7 +285,8 @@ const smtpService = {
 			await client.connect();
 			await client.login();
 			await client.send({
-				from: config.sender,
+				envelopeFrom: config.sender,
+				from: params.accountEmail || config.sender,
 				name: params.name,
 				to: params.receiveEmail,
 				subject: params.subject,

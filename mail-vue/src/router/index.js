@@ -51,6 +51,16 @@ const routes = [
                 }
             },
             {
+                path: '/developer',
+                name: 'developer',
+                component: () => import('@/views/developer/index.vue'),
+                meta: {
+                    title: 'developer',
+                    name: 'developer',
+                    menu: true
+                }
+            },
+            {
                 path: '/starred',
                 name: 'star',
                 component: () => import('@/views/star/index.vue'),

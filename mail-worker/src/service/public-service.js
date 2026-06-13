@@ -315,6 +315,20 @@ const publicService = {
 	async sendStatus(c, params) {
 		params = params || {};
 		const emailIds = this.normalizeEmailIds(params.emailIds || params.emailId);
+		const conditions = [
+			inArray(email.emailId, emailIds),
+			eq(email.type, emailConst.type.SEND),
+			eq(email.isDel, isDel.NORMAL)
+		];
+
+		if (params.userId) {
+			conditions.push(eq(email.userId, Number(params.userId)));
+		}
+
+		if (params.apiKeyId) {
+			conditions.push(eq(email.apiKeyId, Number(params.apiKeyId)));
+		}
+
 		const rows = await orm(c).select({
 			emailId: email.emailId,
 			resendEmailId: email.resendEmailId,
@@ -325,13 +339,7 @@ const publicService = {
 			status: email.status,
 			message: email.message,
 			createTime: email.createTime
-		}).from(email).where(
-			and(
-				inArray(email.emailId, emailIds),
-				eq(email.type, emailConst.type.SEND),
-				eq(email.isDel, isDel.NORMAL)
-			)
-		).all();
+		}).from(email).where(and(...conditions)).all();
 
 		return rows.map(row => ({
 			emailId: row.emailId,
@@ -365,14 +373,22 @@ const publicService = {
 			content,
 			subject,
 			code: params.code || '',
-			attachments
+			attachments,
+			apiKeyId: params.apiKeyId || 0,
+			fromEmail: params.trustedSenderIdentity ? params.fromEmail : accountRow.email,
+			accountEmail: params.trustedSenderIdentity ? params.accountEmail : accountRow.email
 		}, userRow.userId);
 	},
 
 	async resolveSender(c, params) {
 		let accountRow = null;
 
-		if (params.accountId) {
+		if (params.trustedSenderIdentity && params.deliveryAccountEmail) {
+			accountRow = await accountService.selectByEmailIncludeDel(c, String(params.deliveryAccountEmail).trim());
+			if (accountRow?.isDel === isDel.DELETE) {
+				accountRow = null;
+			}
+		} else if (params.accountId) {
 			accountRow = await accountService.selectById(c, Number(params.accountId));
 		} else if (params.fromEmail) {
 			accountRow = await accountService.selectByEmailIncludeDel(c, String(params.fromEmail).trim());
@@ -393,6 +409,10 @@ const publicService = {
 		const userRow = await userService.selectById(c, accountRow.userId);
 		if (!userRow || userRow.isDel === isDel.DELETE) {
 			throw new BizError(t('notExistUser'));
+		}
+
+		if (params.trustedSenderIdentity && params.senderUserId && userRow.userId !== Number(params.senderUserId)) {
+			throw new BizError(t('unauthorized'), 403);
 		}
 
 		if (userRow.email !== c.env.admin) {

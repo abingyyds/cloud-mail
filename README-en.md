@@ -91,22 +91,26 @@ With only one domain, you can create multiple different email addresses, similar
 
 ## Open API: Verification Codes and Automated Emails
 
-First generate a public token with the admin account:
+Customers should use the **Developer** page to create their own API Key and sender identities. SMTP, Resend, and Cloudflare Email Sending are platform-level delivery channels managed by the platform administrator; customers do not need to configure SMTP.
+
+Customer integration flow:
+
+1. Sign in and open **Developer**
+2. Create an API Key and store it immediately; the plaintext key is shown only once. You can set daily, monthly, and total sending limits. `0` means unlimited
+3. Add a sender identity
+   - Platform mailboxes are verified automatically
+   - Custom-domain senders get a DNS TXT token at `_smmails.<domain>` and can send only after verification
+4. Call `/api/open/sendCode` from the customer's backend
+5. Use **Developer** to view API Key usage, customer quota, and API send logs
+
+Send verification code example:
 
 ```bash
-curl -X POST https://your-domain/api/public/genToken \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"admin password"}'
-```
-
-Then pass `Authorization: <token>` in request headers. Send a verification code:
-
-```bash
-curl -X POST https://your-domain/api/public/sendCode \
-  -H "Authorization: <token>" \
+curl -X POST https://your-domain/api/open/sendCode \
+  -H "Authorization: Bearer smm_xxx" \
   -H "Content-Type: application/json" \
   -d '{
-    "fromEmail": "no-reply@example.com",
+    "fromEmail": "no-reply@yourdomain.com",
     "to": "user@example.org",
     "productName": "Example App",
     "purpose": "sign in",
@@ -117,8 +121,8 @@ curl -X POST https://your-domain/api/public/sendCode \
 You can also pass `code` if your product generates the verification code itself. The API returns `code`, `emailId`, and `status/statusText`; store `emailId` if you need to query status later:
 
 ```bash
-curl -X POST https://your-domain/api/public/sendStatus \
-  -H "Authorization: <token>" \
+curl -X POST https://your-domain/api/open/sendStatus \
+  -H "Authorization: Bearer smm_xxx" \
   -H "Content-Type: application/json" \
   -d '{"emailIds":[123]}'
 ```
@@ -126,8 +130,8 @@ curl -X POST https://your-domain/api/public/sendStatus \
 Send a notification:
 
 ```bash
-curl -X POST https://your-domain/api/public/sendNotice \
-  -H "Authorization: <token>" \
+curl -X POST https://your-domain/api/open/sendNotice \
+  -H "Authorization: Bearer smm_xxx" \
   -H "Content-Type: application/json" \
   -d '{
     "fromEmail": "no-reply@example.com",
@@ -141,14 +145,39 @@ curl -X POST https://your-domain/api/public/sendNotice \
 Send a custom automated email:
 
 ```bash
-curl -X POST https://your-domain/api/public/sendAutoMail \
-  -H "Authorization: <token>" \
+curl -X POST https://your-domain/api/open/sendAutoMail \
+  -H "Authorization: Bearer smm_xxx" \
   -H "Content-Type: application/json" \
   -d '{
     "fromEmail": "no-reply@example.com",
     "to": "user@example.org",
     "subject": "Service notification",
     "text": "This automated email was triggered by your product."
+  }'
+```
+
+`fromEmail` must be added and verified as a sender identity in **Developer** first. API send logs in the customer dashboard only show records sent by the current customer's API Keys.
+
+The admin global public token is still supported for compatibility:
+
+```bash
+curl -X POST https://your-domain/api/public/genToken \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"admin password"}'
+```
+
+Then pass `Authorization: <token>` in request headers. The legacy public token endpoints are still supported:
+
+```bash
+curl -X POST https://your-domain/api/public/sendNotice \
+  -H "Authorization: <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromEmail": "no-reply@example.com",
+    "to": ["user@example.org"],
+    "productName": "Example App",
+    "title": "Order shipped",
+    "body": "Your order has shipped. Please check the tracking updates."
   }'
 ```
 
