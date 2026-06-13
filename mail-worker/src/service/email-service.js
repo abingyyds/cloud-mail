@@ -22,6 +22,7 @@ import domainUtils from '../utils/domain-uitls';
 import account from "../entity/account";
 import { att } from '../entity/att';
 import telegramService from './telegram-service';
+import smtpService from './smtp-service';
 
 const emailService = {
 
@@ -161,10 +162,23 @@ const emailService = {
 			text, //邮件纯文本
 			content, //邮件内容
 			subject, //邮件标题
+			code = '', //验证码/交易邮件元数据
 			attachments = [] //附件
 		} = params;
 
-		const { resendTokens, r2Domain, send, domainList } = await settingService.query(c);
+		const {
+			resendTokens,
+			r2Domain,
+			send,
+			domainList,
+			smtpHost,
+			smtpPort,
+			smtpUsername,
+			smtpPassword,
+			smtpSender,
+			smtpSecure,
+			smtpStatus
+		} = await settingService.query(c);
 
 		let { imageDataList, html } = await attService.toImageUrlHtml(c, content);
 
@@ -232,9 +246,10 @@ const emailService = {
 		const domain = emailUtils.getDomain(accountRow.email);
 		const resendToken = resendTokens[domain];
 		const useCloudflareEmail = !!c.env.email;
+		const useSmtp = smtpStatus === settingConst.smtpStatus.OPEN && !!smtpHost && !!smtpSender;
 
 		//如果接收方存在站外邮箱，又没有发信服务
-		if (!useCloudflareEmail && !resendToken && !allInternal) {
+		if (!useCloudflareEmail && !resendToken && !useSmtp && !allInternal) {
 			throw new BizError(t('noSendProvider'));
 		}
 
@@ -275,7 +290,7 @@ const emailService = {
 					sendType,
 					messageId: emailRow.messageId
 				});
-			} else {
+			} else if (resendToken) {
 				sendResult = await this.sendByResend(resendToken, {
 					name,
 					accountEmail: accountRow.email,
@@ -284,6 +299,27 @@ const emailService = {
 					text,
 					html,
 					attachments: [...imageDataList, ...attachments],
+					sendType,
+					messageId: emailRow.messageId
+				});
+			} else {
+				if (imageDataList.length > 0 || attachments.length > 0) {
+					throw new BizError('SMTP发信暂不支持附件或正文内嵌图片，请配置 Cloudflare Email Sending 或 Resend');
+				}
+				sendResult = await smtpService.send({
+					host: smtpHost,
+					port: smtpPort,
+					username: smtpUsername,
+					password: smtpPassword,
+					sender: smtpSender,
+					secure: smtpSecure
+				}, {
+					name,
+					accountEmail: accountRow.email,
+					receiveEmail,
+					subject,
+					text,
+					html,
 					sendType,
 					messageId: emailRow.messageId
 				});
@@ -308,6 +344,7 @@ const emailService = {
 		emailData.sendEmail = accountRow.email;
 		emailData.name = name;
 		emailData.subject = subject;
+		emailData.code = code || '';
 		emailData.content = html;
 		emailData.text = text;
 		emailData.accountId = accountId;

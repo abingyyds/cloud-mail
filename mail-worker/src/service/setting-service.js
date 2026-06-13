@@ -9,6 +9,7 @@ import BizError from '../error/biz-error';
 import {t} from '../i18n/i18n'
 import verifyRecordService from './verify-record-service';
 import userContext from '../security/user-context';
+import verifyUtils from '../utils/verify-utils';
 
 const settingService = {
 
@@ -82,10 +83,15 @@ const settingService = {
 
 	async get(c, showSiteKey = false) {
 
-		const [settingRow, recordList] = await Promise.all([
+		let [settingRow, recordList] = await Promise.all([
 			await this.query(c),
 			verifyRecordService.selectListByIP(c)
 		]);
+
+		settingRow = {
+			...settingRow,
+			resendTokens: { ...settingRow.resendTokens }
+		};
 
 
 		if (!showSiteKey) {
@@ -101,8 +107,10 @@ const settingService = {
 		settingRow.s3AccessKey = settingRow.s3AccessKey ? `${settingRow.s3AccessKey.slice(0, 12)}******` : null;
 		settingRow.s3SecretKey = settingRow.s3SecretKey ? `${settingRow.s3SecretKey.slice(0, 12)}******` : null;
 		settingRow.tgBotToken = settingRow.tgBotToken ? `${settingRow.tgBotToken.slice(0, 20)}******` : null;
+		settingRow.smtpPassword = settingRow.smtpPassword ? '******' : '';
 		settingRow.hasR2 = !!c.env.r2
 		settingRow.hasCfEmail = !!c.env.email
+		settingRow.hasSmtp = settingRow.smtpStatus === 0 && !!settingRow.smtpHost && !!settingRow.smtpSender
 
 		let regVerifyOpen = false
 		let addVerifyOpen = false
@@ -142,6 +150,37 @@ const settingService = {
 		if (params.loginDarkenFactor !== undefined) {
 			const factor = Number(params.loginDarkenFactor);
 			params.loginDarkenFactor = Number.isNaN(factor) ? 0 : Math.min(1, Math.max(0, factor));
+		}
+
+		if (params.smtpPort !== undefined) {
+			const port = Number(params.smtpPort);
+			if (!Number.isInteger(port) || port < 1 || port > 65535) {
+				throw new BizError('SMTP端口无效');
+			}
+			if (port === 25) {
+				throw new BizError('Cloudflare Workers 不支持连接 SMTP 25 端口，请使用 587 或 465');
+			}
+			params.smtpPort = port;
+		}
+
+		if (params.smtpSecure !== undefined && !['starttls', 'tls', 'none'].includes(params.smtpSecure)) {
+			throw new BizError('SMTP加密方式无效');
+		}
+
+		if (params.smtpSender && !verifyUtils.isEmail(params.smtpSender)) {
+			throw new BizError(t('notEmail'));
+		}
+
+		if (params.smtpStatus === 0) {
+			const smtpHost = params.smtpHost ?? settingData.smtpHost;
+			const smtpSender = params.smtpSender ?? settingData.smtpSender;
+			if (!smtpHost || !smtpSender) {
+				throw new BizError('启用 SMTP 前请先填写服务器地址和发送者邮箱');
+			}
+		}
+
+		if (params.smtpPassword === '') {
+			delete params.smtpPassword;
 		}
 
 		params.resendTokens = JSON.stringify(resendTokens);

@@ -57,6 +57,8 @@ With only one domain, you can create multiple different email addresses, similar
 
 - **📡 Open API**: Supports batch user creation via API and multi-condition email queries
 
+- **📨 Transactional Email API**: Lets external products send verification codes, system notifications, and automated emails, then query delivery status.
+
 - **🔢 Verification Code Recognition**: Auto-detect codes via Workers AI
 
 - **📈 Data Visualization**: Use ECharts to visualize system data, including user email growth.
@@ -86,6 +88,78 @@ With only one domain, you can create multiple different email addresses, similar
 - **Database**: [Cloudflare D1](https://developers.cloudflare.com/d1/)
 
 - **File Storage**: [Cloudflare R2](https://developers.cloudflare.com/r2/)
+
+## Open API: Verification Codes and Automated Emails
+
+First generate a public token with the admin account:
+
+```bash
+curl -X POST https://your-domain/api/public/genToken \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"admin password"}'
+```
+
+Then pass `Authorization: <token>` in request headers. Send a verification code:
+
+```bash
+curl -X POST https://your-domain/api/public/sendCode \
+  -H "Authorization: <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromEmail": "no-reply@example.com",
+    "to": "user@example.org",
+    "productName": "Example App",
+    "purpose": "sign in",
+    "expireMinutes": 10
+  }'
+```
+
+You can also pass `code` if your product generates the verification code itself. The API returns `code`, `emailId`, and `status/statusText`; store `emailId` if you need to query status later:
+
+```bash
+curl -X POST https://your-domain/api/public/sendStatus \
+  -H "Authorization: <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"emailIds":[123]}'
+```
+
+Send a notification:
+
+```bash
+curl -X POST https://your-domain/api/public/sendNotice \
+  -H "Authorization: <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromEmail": "no-reply@example.com",
+    "to": ["user@example.org"],
+    "productName": "Example App",
+    "title": "Order shipped",
+    "body": "Your order has shipped. Please check the tracking updates."
+  }'
+```
+
+Send a custom automated email:
+
+```bash
+curl -X POST https://your-domain/api/public/sendAutoMail \
+  -H "Authorization: <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromEmail": "no-reply@example.com",
+    "to": "user@example.org",
+    "subject": "Service notification",
+    "text": "This automated email was triggered by your product."
+  }'
+```
+
+`fromEmail` must exist in the system and have send permission. If omitted, the admin account email is used by default. External delivery still requires Cloudflare Email Service or a Resend token for the sender domain.
+
+If Cloudflare Email Service or Resend is not available, configure SMTP in system settings:
+
+- Recommended modes are `587 + STARTTLS` or `465 + SSL/TLS`; Cloudflare Workers does not support SMTP port 25
+- `SMTP sender email` must be allowed by the SMTP provider, or the domain should have SPF/DKIM/DMARC configured
+- The SMTP credential is stored only on the backend; the frontend only shows whether it is configured
+- SMTP fallback is intended for verification codes, notifications, and automated emails; emails with attachments or embedded inline images should use Cloudflare Email Service or Resend
 
 ## Project Structure
 

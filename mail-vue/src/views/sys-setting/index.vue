@@ -200,6 +200,16 @@
                 </div>
               </div>
               <div class="setting-item">
+                <div><span>{{ $t('smtpSetting') }}</span></div>
+                <div class="forward">
+                  <span>{{ setting.hasSmtp ? $t('enabled') : $t('disabled') }}</span>
+                  <el-button class="opt-button" style="margin-top: 0" @click="openSmtpSetting" size="small"
+                             type="primary">
+                    <Icon icon="fluent:settings-48-regular" width="18" height="18"/>
+                  </el-button>
+                </div>
+              </div>
+              <div class="setting-item">
                 <div><span>{{ $t('blackList') }}</span></div>
                 <div>
                   <el-button class="opt-button" style="margin-top: 0" @click="openBlackListForm" size="small"
@@ -641,6 +651,40 @@
                            :show-overflow-tooltip="true"/>
         </el-table>
       </el-dialog>
+      <el-dialog v-model="smtpShow" :title="$t('smtpSetting')" width="380" @closed="resetSmtpForm">
+        <el-form label-position="top">
+          <el-form-item :label="$t('smtpHost')">
+            <el-input v-model="smtpForm.smtpHost" placeholder="smtp.example.com"/>
+          </el-form-item>
+          <el-form-item :label="$t('smtpPort')">
+            <el-input-number v-model="smtpForm.smtpPort" :min="1" :max="65535" style="width: 100%"/>
+          </el-form-item>
+          <el-form-item :label="$t('smtpUsername')">
+            <el-input v-model="smtpForm.smtpUsername"/>
+          </el-form-item>
+          <el-form-item :label="$t('smtpSender')">
+            <el-input v-model="smtpForm.smtpSender" placeholder="no-reply@example.com"/>
+          </el-form-item>
+          <el-form-item :label="$t('smtpPassword')">
+            <el-input v-model="smtpForm.smtpPassword" type="password" show-password
+                      :placeholder="setting.smtpPassword || $t('smtpPasswordPlaceholder')"/>
+          </el-form-item>
+          <el-form-item :label="$t('smtpSecure')">
+            <el-select v-model="smtpForm.smtpSecure" style="width: 100%">
+              <el-option label="STARTTLS (587)" value="starttls"/>
+              <el-option label="SSL/TLS (465)" value="tls"/>
+              <el-option :label="$t('smtpSecureNone')" value="none"/>
+            </el-select>
+          </el-form-item>
+          <div class="smtp-status">
+            <span>{{ $t('enableSmtp') }}</span>
+            <el-switch v-model="smtpForm.smtpStatus" :active-value="0" :inactive-value="1"/>
+          </div>
+          <el-button type="primary" style="width: 100%; margin-top: 16px;" :loading="settingLoading" @click="saveSmtp">
+            {{ $t('saveSmtpSetting') }}
+          </el-button>
+        </el-form>
+      </el-dialog>
       <el-dialog v-model="regVerifyCountShow" :title="$t('rulesVerifyTitle',{count: regVerifyCount})"
                  @closed="regVerifyCount = setting.regVerifyCount">
         <form>
@@ -854,6 +898,7 @@ const thirdEmailShow = ref(false)
 const forwardRulesShow = ref(false)
 const emailPrefixShow = ref(false)
 const showResendList = ref(false)
+const smtpShow = ref(false)
 const settingStore = useSettingStore();
 const uiStore = useUiStore();
 const {settings: setting} = storeToRefs(settingStore);
@@ -877,6 +922,15 @@ const regVerifyCountShow = ref(false)
 const resendTokenForm = reactive({
   domain: '',
   token: '',
+})
+const smtpForm = reactive({
+  smtpHost: '',
+  smtpPort: 587,
+  smtpUsername: '',
+  smtpPassword: '',
+  smtpSender: '',
+  smtpSecure: 'starttls',
+  smtpStatus: 1
 })
 const turnstileForm = reactive({
   siteKey: '',
@@ -967,6 +1021,7 @@ function getSettings() {
     resetEmailPrefix()
     resetBlackList()
     resetAiCodeFilter()
+    resetSmtpForm()
     nextTick(() => {
       settingReady.value = true
     })
@@ -1083,6 +1138,36 @@ function openNoticePopupSetting() {
 
 function openResendList() {
   showResendList.value = true
+}
+
+function openSmtpSetting() {
+  resetSmtpForm()
+  smtpShow.value = true
+}
+
+function resetSmtpForm() {
+  smtpForm.smtpHost = setting.value.smtpHost || ''
+  smtpForm.smtpPort = setting.value.smtpPort || 587
+  smtpForm.smtpUsername = setting.value.smtpUsername || ''
+  smtpForm.smtpPassword = ''
+  smtpForm.smtpSender = setting.value.smtpSender || ''
+  smtpForm.smtpSecure = setting.value.smtpSecure || 'starttls'
+  smtpForm.smtpStatus = setting.value.smtpStatus ?? 1
+}
+
+function saveSmtp() {
+  const form = {
+    smtpHost: smtpForm.smtpHost,
+    smtpPort: smtpForm.smtpPort,
+    smtpUsername: smtpForm.smtpUsername,
+    smtpSender: smtpForm.smtpSender,
+    smtpSecure: smtpForm.smtpSecure,
+    smtpStatus: smtpForm.smtpStatus
+  }
+  if (smtpForm.smtpPassword) {
+    form.smtpPassword = smtpForm.smtpPassword
+  }
+  editSetting(form)
 }
 
 function resetNoticeForm() {
@@ -1469,6 +1554,7 @@ function change(e) {
   delete settingForm.s3AccessKey
   delete settingForm.s3SecretKey
   delete settingForm.tgBotToken
+  delete settingForm.smtpPassword
   delete settingForm.resendTokens
   editSetting(settingForm, false)
 }
@@ -1520,6 +1606,7 @@ function editSetting(settingForm, refreshStatus = true) {
     addS3Show.value = false
     emailPrefixShow.value = false
     aiCodeFilterShow.value = false
+    smtpShow.value = false
   }).catch((e) => {
     loginOpacity.value = setting.value.loginOpacity
     loginDarkenFactor.value = normalizeFactor(setting.value.loginDarkenFactor)
@@ -1947,6 +2034,14 @@ function editSetting(settingForm, refreshStatus = true) {
     align-items: center;
     gap: 5px;
   }
+}
+
+.smtp-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
 }
 
 .concerning-item {

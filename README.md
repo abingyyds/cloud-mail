@@ -62,6 +62,8 @@
 
 - **📡 开放API**：支持使用API批量生成用户，多条件查询邮件 
 
+- **📨 交易邮件 API**：支持第三方产品通过 API 发送验证码、系统通知和自动邮件，并查询发送状态
+
 - **🔢 验证码识别**：使用Workers AI，自动识别邮件验证码 
 
 - **📈 数据可视化**：使用ECharts对系统数据详情，用户邮件增长可视化显示
@@ -93,6 +95,78 @@
 - **数据库**：[Cloudflare D1](https://developers.cloudflare.com/d1/)
 
 - **文件存储**：[Cloudflare R2](https://developers.cloudflare.com/r2/)
+
+## 开放 API：验证码与自动邮件
+
+先用管理员账号生成 public token：
+
+```bash
+curl -X POST https://你的域名/api/public/genToken \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"管理员密码"}'
+```
+
+之后在请求头传入 `Authorization: <token>`。发验证码：
+
+```bash
+curl -X POST https://你的域名/api/public/sendCode \
+  -H "Authorization: <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromEmail": "no-reply@example.com",
+    "to": "user@example.org",
+    "productName": "Example App",
+    "purpose": "登录",
+    "expireMinutes": 10
+  }'
+```
+
+也可以用 `code` 传入业务系统自己生成的验证码。接口会返回 `code`、`emailId`、`status/statusText`，业务系统可保存 `emailId` 后查询发送状态：
+
+```bash
+curl -X POST https://你的域名/api/public/sendStatus \
+  -H "Authorization: <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"emailIds":[123]}'
+```
+
+发送通知：
+
+```bash
+curl -X POST https://你的域名/api/public/sendNotice \
+  -H "Authorization: <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromEmail": "no-reply@example.com",
+    "to": ["user@example.org"],
+    "productName": "Example App",
+    "title": "订单已发货",
+    "body": "你的订单已经发货，请留意物流更新。"
+  }'
+```
+
+发送自定义自动邮件：
+
+```bash
+curl -X POST https://你的域名/api/public/sendAutoMail \
+  -H "Authorization: <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fromEmail": "no-reply@example.com",
+    "to": "user@example.org",
+    "subject": "服务通知",
+    "text": "这是一封由业务系统触发的自动邮件。"
+  }'
+```
+
+`fromEmail` 必须是系统里存在且有发信权限的邮箱；不传时默认使用管理员邮箱对应账号。站外发信仍然需要配置 Cloudflare Email Service 或对应发信域名的 Resend Token。
+
+如果没有 Cloudflare Email Service 或 Resend，也可以在系统设置中配置 SMTP：
+
+- 推荐 `587 + STARTTLS` 或 `465 + SSL/TLS`，Cloudflare Workers 不支持 SMTP 25 端口
+- `SMTP 发送者邮箱` 必须是 SMTP 服务商允许的发件地址，或者对应域名已完成 SPF/DKIM/DMARC 验证
+- SMTP 访问凭证只保存在后端，前端查询时仅显示已配置状态
+- SMTP 兜底适合验证码、通知和自动邮件；带附件或正文内嵌图片的邮件仍建议使用 Cloudflare Email Service 或 Resend
 
 ## 目录结构
 
@@ -153,6 +227,4 @@ cloud-mail
 ## 交流
 
 [Telegram](https://t.me/cloud_mail_tg)
-
-
 

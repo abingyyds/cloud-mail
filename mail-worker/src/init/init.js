@@ -30,8 +30,29 @@ const dbInit = {
 		await this.v2_9DB(c);
 		await this.v3_0DB(c);
 		await this.v3_1DB(c);
+		await this.v3_2DB(c);
 		await settingService.refresh(c);
 		return c.text('success');
+	},
+
+	async v3_2DB(c) {
+		const ADD_COLUMN_SQL_LIST = [
+			`ALTER TABLE setting ADD COLUMN smtp_host TEXT NOT NULL DEFAULT '';`,
+			`ALTER TABLE setting ADD COLUMN smtp_port INTEGER NOT NULL DEFAULT 587;`,
+			`ALTER TABLE setting ADD COLUMN smtp_username TEXT NOT NULL DEFAULT '';`,
+			`ALTER TABLE setting ADD COLUMN smtp_password TEXT NOT NULL DEFAULT '';`,
+			`ALTER TABLE setting ADD COLUMN smtp_sender TEXT NOT NULL DEFAULT '';`,
+			`ALTER TABLE setting ADD COLUMN smtp_secure TEXT NOT NULL DEFAULT 'starttls';`,
+			`ALTER TABLE setting ADD COLUMN smtp_status INTEGER NOT NULL DEFAULT 1;`
+		];
+
+		await Promise.all(ADD_COLUMN_SQL_LIST.map(async (sql) => {
+			try {
+				await c.env.db.prepare(sql).run();
+			} catch (e) {
+				console.warn(`跳过字段：${e.message}`);
+			}
+		}));
 	},
 
 	async v3_1DB(c) {

@@ -52,6 +52,13 @@ export const setting = sqliteTable('setting', {
 	blackContent: text('black_content').default('').notNull(),
 	blackFrom: text('black_from').default('').notNull(),
 	aiCode: integer('ai_code').default(1).notNull(),
-	aiCodeFilter: text('ai_code_filter').default('').notNull()
+	aiCodeFilter: text('ai_code_filter').default('').notNull(),
+	smtpHost: text('smtp_host').default('').notNull(),
+	smtpPort: integer('smtp_port').default(587).notNull(),
+	smtpUsername: text('smtp_username').default('').notNull(),
+	smtpPassword: text('smtp_password').default('').notNull(),
+	smtpSender: text('smtp_sender').default('').notNull(),
+	smtpSecure: text('smtp_secure').default('starttls').notNull(),
+	smtpStatus: integer('smtp_status').default(1).notNull()
 });
 export default setting
