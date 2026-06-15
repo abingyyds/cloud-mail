@@ -74,7 +74,9 @@ const dbInit = {
 			);`,
 			`CREATE UNIQUE INDEX IF NOT EXISTS idx_sender_identity_email ON sender_identity(email COLLATE NOCASE);`,
 			`CREATE INDEX IF NOT EXISTS idx_sender_identity_user_id ON sender_identity(user_id);`,
-			`CREATE INDEX IF NOT EXISTS idx_email_api_key_id ON email(api_key_id);`
+			`CREATE INDEX IF NOT EXISTS idx_email_api_key_id ON email(api_key_id);`,
+			`CREATE INDEX IF NOT EXISTS idx_email_mail_type ON email(mail_type);`,
+			`CREATE INDEX IF NOT EXISTS idx_email_api_key_mail_type ON email(api_key_id, mail_type);`
 		];
 
 		await Promise.all(SQL_LIST.map(async (sql) => {
@@ -95,7 +97,10 @@ const dbInit = {
 			`ALTER TABLE api_key ADD COLUMN quota_date TEXT NOT NULL DEFAULT '';`,
 			`ALTER TABLE api_key ADD COLUMN quota_month TEXT NOT NULL DEFAULT '';`,
 			`ALTER TABLE email ADD COLUMN api_key_id INTEGER NOT NULL DEFAULT 0;`,
-			`CREATE INDEX IF NOT EXISTS idx_email_api_key_id ON email(api_key_id);`
+			`ALTER TABLE email ADD COLUMN mail_type TEXT NOT NULL DEFAULT 'normal';`,
+			`CREATE INDEX IF NOT EXISTS idx_email_api_key_id ON email(api_key_id);`,
+			`CREATE INDEX IF NOT EXISTS idx_email_mail_type ON email(mail_type);`,
+			`CREATE INDEX IF NOT EXISTS idx_email_api_key_mail_type ON email(api_key_id, mail_type);`
 		];
 
 		await Promise.all(ADD_COLUMN_SQL_LIST.map(async (sql) => {
@@ -629,7 +634,10 @@ const dbInit = {
 			name TEXT,
 			account_id INTEGER NOT NULL,
 			user_id INTEGER NOT NULL,
+			api_key_id INTEGER DEFAULT 0 NOT NULL,
+			mail_type TEXT DEFAULT 'normal' NOT NULL,
 			subject TEXT,
+			code TEXT DEFAULT '' NOT NULL,
 			content TEXT,
 			text TEXT,
 			create_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL,

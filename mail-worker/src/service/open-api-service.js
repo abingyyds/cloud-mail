@@ -123,6 +123,11 @@ function parseRecipientJson(value) {
 	}
 }
 
+function normalizeMailType(value) {
+	const mailType = String(value || '').trim();
+	return Object.values(emailConst.mailType).includes(mailType) ? mailType : '';
+}
+
 function normalizeRecipientCount(params) {
 	const value = params.to || params.receiveEmail || params.email;
 	const list = Array.isArray(value) ? value : [value];
@@ -370,6 +375,11 @@ const openApiService = {
 			conditions.push(eq(email.apiKeyId, Number(params.apiKeyId)));
 		}
 
+		const mailType = normalizeMailType(params.mailType);
+		if (mailType) {
+			conditions.push(eq(email.mailType, mailType));
+		}
+
 		const listQuery = orm(c).select({
 			emailId: email.emailId,
 			apiKeyId: email.apiKeyId,
@@ -377,6 +387,7 @@ const openApiService = {
 			keyPrefix: apiKey.keyPrefix,
 			resendEmailId: email.resendEmailId,
 			sendEmail: email.sendEmail,
+			mailType: email.mailType,
 			subject: email.subject,
 			code: email.code,
 			recipient: email.recipient,
@@ -405,6 +416,7 @@ const openApiService = {
 				resendEmailId: row.resendEmailId,
 				from: row.sendEmail,
 				to: parseRecipientJson(row.recipient),
+				mailType: row.mailType,
 				subject: row.subject,
 				code: row.code,
 				status: row.status,

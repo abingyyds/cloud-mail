@@ -73,6 +73,12 @@ export const emailConst = {
 		NOONE: 7,
 		FAILED: 8
 	},
+	mailType: {
+		NORMAL: 'normal',
+		CODE: 'code',
+		NOTICE: 'notice',
+		AUTO: 'auto'
+	},
 	unread: {
 		UNREAD: 0,
 		READ: 1

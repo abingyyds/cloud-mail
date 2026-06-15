@@ -253,12 +253,14 @@ const publicService = {
 			text,
 			content,
 			code,
+			mailType: emailConst.mailType.CODE,
 			attachments: []
 		});
 
 		return {
 			code,
 			expireMinutes,
+			mailType: emailConst.mailType.CODE,
 			emails: this.toPublicSendResult(emailRows)
 		};
 	},
@@ -286,10 +288,12 @@ const publicService = {
 			...params,
 			subject: title,
 			text,
-			content
+			content,
+			mailType: emailConst.mailType.NOTICE
 		});
 
 		return {
+			mailType: emailConst.mailType.NOTICE,
 			emails: this.toPublicSendResult(emailRows)
 		};
 	},
@@ -304,10 +308,12 @@ const publicService = {
 			...params,
 			subject,
 			text,
-			content
+			content,
+			mailType: emailConst.mailType.AUTO
 		});
 
 		return {
+			mailType: emailConst.mailType.AUTO,
 			emails: this.toPublicSendResult(emailRows)
 		};
 	},
@@ -333,6 +339,7 @@ const publicService = {
 			emailId: email.emailId,
 			resendEmailId: email.resendEmailId,
 			sendEmail: email.sendEmail,
+			mailType: email.mailType,
 			subject: email.subject,
 			code: email.code,
 			recipient: email.recipient,
@@ -346,6 +353,7 @@ const publicService = {
 			resendEmailId: row.resendEmailId,
 			from: row.sendEmail,
 			to: parseRecipientJson(row.recipient),
+			mailType: row.mailType,
 			subject: row.subject,
 			code: row.code,
 			status: row.status,
@@ -373,6 +381,7 @@ const publicService = {
 			content,
 			subject,
 			code: params.code || '',
+			mailType: params.mailType || emailConst.mailType.NORMAL,
 			attachments,
 			apiKeyId: params.apiKeyId || 0,
 			fromEmail: params.trustedSenderIdentity ? params.fromEmail : accountRow.email,
@@ -560,6 +569,7 @@ const publicService = {
 			resendEmailId: row.resendEmailId,
 			from: row.sendEmail,
 			to: parseRecipientJson(row.recipient),
+			mailType: row.mailType,
 			subject: row.subject,
 			status: row.status,
 			statusText: emailStatusText[row.status] || 'unknown',

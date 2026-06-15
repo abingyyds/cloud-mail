@@ -110,6 +110,12 @@
 4. 在客户自己的产品后端调用 `/api/open/sendCode`
 5. 在 **开发者接入** 查看 API Key 用量、客户总额度和发信日志
 
+平台会自动给不同接口标记邮件类型，客户不用额外传参：
+
+- `/api/open/sendCode`：`mailType = code`，用于登录、注册、支付确认等验证码
+- `/api/open/sendNotice`：`mailType = notice`，用于订单、账单、系统提醒等通知
+- `/api/open/sendAutoMail`：`mailType = auto`，用于业务系统触发的自定义自动邮件
+
 发送验证码示例：
 
 ```bash
@@ -125,7 +131,7 @@ curl -X POST https://你的域名/api/open/sendCode \
   }'
 ```
 
-也可以用 `code` 传入业务系统自己生成的验证码。接口会返回 `code`、`emailId`、`status/statusText`，业务系统可保存 `emailId` 后查询发送状态：
+也可以用 `code` 传入业务系统自己生成的验证码。接口会返回 `mailType`、`code`、`emailId`、`status/statusText`，业务系统可保存 `emailId` 后查询发送状态：
 
 ```bash
 curl -X POST https://你的域名/api/open/sendStatus \
@@ -163,7 +169,7 @@ curl -X POST https://你的域名/api/open/sendAutoMail \
   }'
 ```
 
-`fromEmail` 必须先在 **开发者接入** 添加为发信身份并验证通过。客户后台的 API 发信日志只展示当前客户自己的 API Key 发信记录。
+`fromEmail` 必须先在 **开发者接入** 添加为发信身份并验证通过。客户后台的 API 发信日志只展示当前客户自己的 API Key 发信记录，并支持按验证码、通知邮件、自动邮件筛选。
 
 兼容管理员全局 public token：
 

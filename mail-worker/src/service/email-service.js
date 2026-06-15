@@ -163,6 +163,7 @@ const emailService = {
 			content, //邮件内容
 			subject, //邮件标题
 			code = '', //验证码/交易邮件元数据
+			mailType = emailConst.mailType.NORMAL, //邮件业务类型
 			attachments = [], //附件
 			apiKeyId = 0,
 			fromEmail,
@@ -346,6 +347,7 @@ const emailService = {
 
 		//把图片标签cid标签切换会通用url
 		html = this.imgReplace(html, imageDataList, r2Domain);
+		mailType = Object.values(emailConst.mailType).includes(mailType) ? mailType : emailConst.mailType.NORMAL;
 
 		//封装数据保存到数据库
 		const emailData = {};
@@ -353,6 +355,7 @@ const emailService = {
 		emailData.name = name;
 		emailData.subject = subject;
 		emailData.code = code || '';
+		emailData.mailType = mailType || emailConst.mailType.NORMAL;
 		emailData.content = html;
 		emailData.text = text;
 		emailData.accountId = accountId;

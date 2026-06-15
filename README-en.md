@@ -103,6 +103,12 @@ Customer integration flow:
 4. Call `/api/open/sendCode` from the customer's backend
 5. Use **Developer** to view API Key usage, customer quota, and API send logs
 
+The platform automatically tags each endpoint with an email type. Customers do not need to pass it manually:
+
+- `/api/open/sendCode`: `mailType = code`, for sign-in, sign-up, payment confirmation, and other verification codes
+- `/api/open/sendNotice`: `mailType = notice`, for order, billing, and system notifications
+- `/api/open/sendAutoMail`: `mailType = auto`, for custom automated emails triggered by the customer's product
+
 Send verification code example:
 
 ```bash
@@ -118,7 +124,7 @@ curl -X POST https://your-domain/api/open/sendCode \
   }'
 ```
 
-You can also pass `code` if your product generates the verification code itself. The API returns `code`, `emailId`, and `status/statusText`; store `emailId` if you need to query status later:
+You can also pass `code` if your product generates the verification code itself. The API returns `mailType`, `code`, `emailId`, and `status/statusText`; store `emailId` if you need to query status later:
 
 ```bash
 curl -X POST https://your-domain/api/open/sendStatus \
@@ -156,7 +162,7 @@ curl -X POST https://your-domain/api/open/sendAutoMail \
   }'
 ```
 
-`fromEmail` must be added and verified as a sender identity in **Developer** first. API send logs in the customer dashboard only show records sent by the current customer's API Keys.
+`fromEmail` must be added and verified as a sender identity in **Developer** first. API send logs in the customer dashboard only show records sent by the current customer's API Keys and can be filtered by verification code, notification, or automated email.
 
 The admin global public token is still supported for compatibility:
 

@@ -136,10 +136,16 @@
               <h2>{{ $t('apiSendLogs') }}</h2>
               <p>{{ $t('apiLogsDesc') }}</p>
             </div>
-            <el-select v-model="logParams.apiKeyId" clearable :placeholder="$t('apiKey')" style="width: 220px" @change="loadLogs">
-              <el-option v-for="item in apiKeys" :key="item.apiKeyId"
-                         :label="`${item.name} (${item.keyPrefix})`" :value="item.apiKeyId"/>
-            </el-select>
+            <div class="log-filters">
+              <el-select v-model="logParams.apiKeyId" clearable :placeholder="$t('apiKey')" style="width: 220px" @change="reloadLogs">
+                <el-option v-for="item in apiKeys" :key="item.apiKeyId"
+                           :label="`${item.name} (${item.keyPrefix})`" :value="item.apiKeyId"/>
+              </el-select>
+              <el-select v-model="logParams.mailType" clearable :placeholder="$t('mailType')" style="width: 160px" @change="reloadLogs">
+                <el-option v-for="item in mailTypeOptions" :key="item.value"
+                           :label="item.label" :value="item.value"/>
+              </el-select>
+            </div>
           </div>
 
           <el-table :data="logs" v-loading="logLoading">
@@ -149,6 +155,11 @@
             <el-table-column :label="$t('recipient')" min-width="240">
               <template #default="{row}">
                 <span>{{ row.to.join(', ') }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('mailType')" min-width="120">
+              <template #default="{row}">
+                <el-tag>{{ mailTypeLabel(row.mailType) }}</el-tag>
               </template>
             </el-table-column>
             <el-table-column prop="subject" :label="$t('subject')" min-width="220" :show-overflow-tooltip="true"/>
@@ -322,8 +333,16 @@ const senderForm = reactive({
 const logParams = reactive({
   num: 1,
   size: 20,
-  apiKeyId: ''
+  apiKeyId: '',
+  mailType: ''
 });
+
+const mailTypeOptions = computed(() => [
+  {label: t('mailTypeCode'), value: 'code'},
+  {label: t('mailTypeNotice'), value: 'notice'},
+  {label: t('mailTypeAuto'), value: 'auto'},
+  {label: t('mailTypeNormal'), value: 'normal'}
+]);
 
 const selectedSenderEmail = computed(() => {
   return senders.value.find(item => item.verifyStatus === 0 && item.status === 0)?.email || 'no-reply@example.com';
@@ -400,6 +419,11 @@ function loadLogs() {
       .finally(() => {
         logLoading.value = false;
       });
+}
+
+function reloadLogs() {
+  logParams.num = 1;
+  loadLogs();
 }
 
 function createKey() {
@@ -517,6 +541,16 @@ function statusTagType(statusText) {
   return 'warning';
 }
 
+function mailTypeLabel(type) {
+  const map = {
+    code: t('mailTypeCode'),
+    notice: t('mailTypeNotice'),
+    auto: t('mailTypeAuto'),
+    normal: t('mailTypeNormal')
+  };
+  return map[type] || t('unknown');
+}
+
 function copy(value) {
   navigator.clipboard.writeText(value || '').then(() => {
     ElMessage({
@@ -628,6 +662,13 @@ function copy(value) {
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+}
+
+.log-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .doc-grid {
