@@ -262,6 +262,23 @@ jobs:
             exit 1
           fi
 
+          echo "🔎 Verifying Worker bindings with Wrangler dry-run..."
+          set +e
+          pnpm wrangler deploy --dry-run -c wrangler-action.toml --outdir .wrangler-dry-run > dry-run.log 2>&1
+          DRY_RUN_EXIT=$?
+          set -e
+          if [ $DRY_RUN_EXIT -ne 0 ]; then
+            cat dry-run.log
+            echo "❌ Wrangler dry-run failed."
+            exit 1
+          fi
+          if ! grep -Fq 'env.db' dry-run.log; then
+            cat dry-run.log
+            echo "❌ Wrangler dry-run does not contain the db D1 binding."
+            exit 1
+          fi
+          echo "✅ Wrangler dry-run confirmed the db D1 binding."
+
           set +e
           pnpm wrangler deploy -c wrangler-action.toml --keep-vars 2>&1 \
             | tee deploy.log \
