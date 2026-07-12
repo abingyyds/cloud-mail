@@ -284,6 +284,26 @@ jobs:
           # GitHub may suppress URL step outputs as potential secrets. Keep the
           # URL in the shared workspace so the initialization step can use it.
           printf '%s' "$WORKER_URL" > .worker-url
+
+          if [ -z "$WORKER_URL" ]; then
+            echo "🔍 Resolving the Workers subdomain for initialization..."
+            WORKER_SUBDOMAIN=$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" \
+              | jq -r '.result.subdomain // empty')
+
+            if [ -n "$WORKER_SUBDOMAIN" ]; then
+              WORKER_URL="https://${NAME}.${WORKER_SUBDOMAIN}.workers.dev"
+              printf '%s' "$WORKER_URL" > .worker-url
+            fi
+          fi
+
+          if [ -z "$WORKER_URL" ]; then
+            echo "❌ Unable to determine the deployed Worker URL. Enable the Workers.dev subdomain or set CUSTOM_DOMAIN."
+            exit 1
+          fi
+
           echo "✅ Setup completed."
 
       - name: ♻️ 初始化数据库 / Initialize database
@@ -294,10 +314,9 @@ jobs:
           # Always initialize the Worker created by this deployment first.
           # A custom domain can still point at an older Worker during route propagation.
           WORKER_URL="$(cat mail-worker/.worker-url 2>/dev/null || true)"
-          WORKER_URL="${WORKER_URL:-${CUSTOM_DOMAIN:+https://$CUSTOM_DOMAIN}}"
           
           if [ -z "$WORKER_URL" ]; then
-            echo "❌ Preview URL not available. Please set CUSTOM_DOMAIN."
+            echo "❌ Deployed Worker URL is missing. Check the deployment step logs."
             exit 1
           fi
 
