@@ -196,6 +196,26 @@ If Cloudflare Email Service or Resend is not available, configure SMTP in system
 - The SMTP credential is stored only on the backend; the frontend only shows whether it is configured
 - SMTP fallback is intended for verification codes, notifications, and automated emails; emails with attachments or embedded inline images should use Cloudflare Email Service or Resend
 
+## Providing SMTP Accounts to Other Products
+
+Cloudflare Workers cannot listen on TCP ports 587/465, so the Worker cannot be used directly as an SMTP server. This repository includes an independent `mail-smtp` Relay:
+
+```text
+Customer product -- SMTP 587/STARTTLS --> mail-smtp Relay -- HTTPS --> SMmails Open API
+```
+
+After deploying `mail-smtp`, customer products can use:
+
+```text
+SMTP server: smtp.example.com
+SMTP port: 587
+SMTP username: product-a
+SMTP password: SMTP_PASSWORD configured in the Relay
+SMTP security: STARTTLS on 587, implicit TLS on 465
+```
+
+The Relay authenticates SMTP accounts, restricts sender addresses, and forwards messages (including attachments) to this project. Quotas, verified sender identities, and logs remain managed by the Open API. See [mail-smtp/README.md](mail-smtp/README.md) for deployment details.
+
 ## Project Structure
 
 ```

@@ -203,6 +203,26 @@ curl -X POST https://你的域名/api/public/sendNotice \
 - SMTP 访问凭证只保存在后端，前端查询时仅显示已配置状态
 - SMTP 兜底适合验证码、通知和自动邮件；带附件或正文内嵌图片的邮件仍建议使用 Cloudflare Email Service 或 Resend
 
+## 为其他产品提供 SMTP 账号
+
+Cloudflare Worker 不能监听 TCP 587/465，因此不能直接把 Worker 作为 SMTP 服务器。项目提供了独立的 `mail-smtp` Relay：
+
+```text
+客户产品 -- SMTP 587/STARTTLS --> mail-smtp Relay -- HTTPS --> 本项目 Open API
+```
+
+部署 `mail-smtp` 后，客户产品可以使用以下配置：
+
+```text
+SMTP 服务器：smtp.example.com
+SMTP 端口：587
+SMTP 账号：product-a
+SMTP 密码：Relay 中配置的 SMTP_PASSWORD
+SMTP SSL：587 使用 STARTTLS，465 使用隐式 TLS
+```
+
+Relay 会校验 SMTP 账号密码、限制发件地址，并将邮件（包括附件）转发到当前项目；实际发信额度、发信身份和日志继续由 Open API 管理。详细配置见 [mail-smtp/README.md](mail-smtp/README.md)。
+
 ## 目录结构
 
 ```
