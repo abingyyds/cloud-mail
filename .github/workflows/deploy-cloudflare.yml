@@ -39,11 +39,6 @@ jobs:
       SMTP_RELAY_SECURE: ${{ secrets.SMTP_RELAY_SECURE || vars.SMTP_RELAY_SECURE || 'starttls' }}
       SMTP_RELAY_TOKEN: ${{ secrets.SMTP_RELAY_TOKEN || vars.SMTP_RELAY_TOKEN }}
 
-
-    outputs:
-      worker_url: ${{ steps.deploy.outputs.worker_url }}
-
-
     steps:
       - name: 🚚 检出代码仓库 / Checkout repository
         uses: actions/checkout@v4
@@ -280,13 +275,15 @@ jobs:
             exit 1
           fi
           
-          WORKER_URL=$(grep -o "https://.*\.workers\.dev" deploy.log || echo "")
+          WORKER_URL=$(grep -o "https://.*\.workers\.dev" deploy.log | head -n 1 || true)
           
           if [ -n "$WORKER_URL" ]; then
             echo "::add-mask::$WORKER_URL"
           fi
-          
-          echo "worker_url=$WORKER_URL" >> $GITHUB_OUTPUT
+
+          # GitHub may suppress URL step outputs as potential secrets. Keep the
+          # URL in the shared workspace so the initialization step can use it.
+          printf '%s' "$WORKER_URL" > .worker-url
           echo "✅ Setup completed."
 
       - name: ♻️ 初始化数据库 / Initialize database
@@ -296,7 +293,7 @@ jobs:
 
           # Always initialize the Worker created by this deployment first.
           # A custom domain can still point at an older Worker during route propagation.
-          WORKER_URL="${{ steps.deploy.outputs.worker_url }}"
+          WORKER_URL="$(cat mail-worker/.worker-url 2>/dev/null || true)"
           WORKER_URL="${WORKER_URL:-${CUSTOM_DOMAIN:+https://$CUSTOM_DOMAIN}}"
           
           if [ -z "$WORKER_URL" ]; then
