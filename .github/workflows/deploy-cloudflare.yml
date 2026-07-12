@@ -284,14 +284,18 @@ jobs:
         run: |
           echo "🛠️ Starting database initialization..."
           sleep 15
-          
-          WORKER_URL="${CUSTOM_DOMAIN:+https://$CUSTOM_DOMAIN}"
-          WORKER_URL="${WORKER_URL:-${{ steps.deploy.outputs.worker_url }}}"
+
+          # Always initialize the Worker created by this deployment first.
+          # A custom domain can still point at an older Worker during route propagation.
+          WORKER_URL="${{ steps.deploy.outputs.worker_url }}"
+          WORKER_URL="${WORKER_URL:-${CUSTOM_DOMAIN:+https://$CUSTOM_DOMAIN}}"
           
           if [ -z "$WORKER_URL" ]; then
             echo "❌ Preview URL not available. Please set CUSTOM_DOMAIN."
             exit 1
           fi
+
+          echo "Initializing: $WORKER_URL"
           
           HTTP_CODE=$(curl -sL -w "%{http_code}" -o response.txt "$WORKER_URL/api/init/${JWT_SECRET}")
           RESPONSE_BODY=$(cat response.txt)
