@@ -196,23 +196,29 @@ jobs:
           D1_NAME="$(printf '%s' "$D1_DATABASE_NAME" | tr -d '[:space:]')"
 
           if [ -n "$D1_DATABASE_ID" ]; then
-            if [ -z "$D1_NAME" ]; then
-              echo "🔍 Resolving D1 database name from D1_DATABASE_ID..."
-              set +e
-                DB_LIST=$(pnpm wrangler d1 list --json 2>&1)
-                STATUS=$?
-              set -e
+            echo "🔍 Validating D1_DATABASE_ID against Cloudflare..."
+            set +e
+              DB_LIST=$(pnpm wrangler d1 list --json 2>&1)
+              STATUS=$?
+            set -e
 
-              if [ $STATUS -eq 0 ]; then
-                D1_NAME=$(printf '%s' "$DB_LIST" | jq -r --arg id "$D1_DATABASE_ID" '.[] | select(.uuid == $id) | .name' | head -n 1)
-              fi
-            fi
-
-            if [ -z "$D1_NAME" ] || [ "$D1_NAME" = "null" ]; then
-              echo "❌ D1_DATABASE_ID is set, but its database name could not be resolved. Set D1_DATABASE_NAME to the exact Cloudflare D1 database name."
+            if [ $STATUS -ne 0 ]; then
+              echo "$DB_LIST"
               exit 1
             fi
 
+            RESOLVED_D1_NAME=$(printf '%s' "$DB_LIST" | jq -r --arg id "$D1_DATABASE_ID" '.[] | select(.uuid == $id) | .name' | head -n 1)
+            if [ -z "$RESOLVED_D1_NAME" ] || [ "$RESOLVED_D1_NAME" = "null" ]; then
+              echo "❌ D1_DATABASE_ID does not match any D1 database in this Cloudflare account. Check the GitHub Secret/Variable; it must be the D1 UUID, not the database name."
+              exit 1
+            fi
+
+            if [ -n "$D1_NAME" ] && [ "$D1_NAME" != "$RESOLVED_D1_NAME" ]; then
+              echo "❌ D1_DATABASE_NAME ($D1_NAME) does not match the database name for D1_DATABASE_ID ($RESOLVED_D1_NAME)."
+              exit 1
+            fi
+
+            D1_NAME="$RESOLVED_D1_NAME"
             echo "✅ Using the D1 database from environment variables: $D1_NAME"
           else
             echo "🔍 Checking if the database exists..."
