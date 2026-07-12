@@ -11,7 +11,8 @@
 | ----------------------- | :--: | ----------------------------------------------------- |
 | `CLOUDFLARE_API_TOKEN`  |  ✅  | Cloudflare API 令牌（需要 Workers 和相关资源权限）    |
 | `CLOUDFLARE_ACCOUNT_ID` |  ✅  | Cloudflare 账户 ID                                    |
-| `D1_DATABASE_ID`        |  ✅  | 您的 D1 数据库的 ID                                     |
+| `D1_DATABASE_ID`        |  ✅  | 您的 D1 数据库 UUID（不是数据库名称）；也可省略，让 workflow 按 `NAME` 自动查找或创建 |
+| `D1_DATABASE_NAME`      |  ❌  | 已有 D1 数据库的精确名称；填写 `D1_DATABASE_ID` 时推荐同时填写 |
 | `KV_NAMESPACE_ID`       |  ✅  | 您的 KV 命名空间的 ID                                   |
 | `R2_BUCKET_NAME`        |  ✅  | 您的 R2 存储桶的名称                                    |
 | `DOMAIN`                |  ✅  | 您要用于邮件服务的域名（例如 `["xx.xx"]，多域名用,分隔`）        |
@@ -27,7 +28,7 @@
 
 1. 访问 [Cloudflare Dashboard](https://dash.cloudflare.com/profile/api-tokens)
 2. 创建新的 API 令牌
-3. 选择"编辑 Cloudflare Workers"模板，并参照下表添加相应权限
+3. 选择"编辑 Cloudflare Workers"模板，并确保令牌同时拥有对应资源权限：Workers Scripts 编辑、Workers Routes 编辑、D1 编辑/读取、KV 编辑；如果启用 R2，再添加 R2 Storage 编辑。
    ![dc2e1dc8dcd217644759c46c6c705de1](https://i.miji.bid/2025/07/07/dc2e1dc8dcd217644759c46c6c705de1.png)
 4. 保存令牌并复制到 GitHub Secrets 中的 `CLOUDFLARE_API_TOKEN`
 
