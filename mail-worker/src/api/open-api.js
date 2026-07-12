@@ -43,6 +43,11 @@ app.post('/open/smtpAccount/create', async (c) => {
 	return c.json(result.ok(data));
 });
 
+app.post('/open/smtpAccount/provision', async (c) => {
+	const data = await openApiService.smtpAccountProvision(c, await c.req.json(), userContext.getUserId(c));
+	return c.json(result.ok(data));
+});
+
 app.delete('/open/smtpAccount/delete', async (c) => {
 	await openApiService.smtpAccountDelete(c, c.req.query(), userContext.getUserId(c));
 	return c.json(result.ok());

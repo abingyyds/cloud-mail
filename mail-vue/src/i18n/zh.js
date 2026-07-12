@@ -212,6 +212,7 @@ const zh = {
     apiKeyName: 'Key 名称',
     senderIdentity: '发信身份',
     smtpAccount: 'SMTP 账号',
+    smtpService: '配置 SMTP',
     smtpAccountDesc: '客户可以使用 SMTP 账号接入系统发送邮件，密码只在创建时显示一次。',
     createSmtpAccount: '创建 SMTP 账号',
     smtpAccountName: '账号名称',

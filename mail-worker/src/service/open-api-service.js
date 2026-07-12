@@ -412,6 +412,84 @@ const openApiService = {
 		};
 	},
 
+	async smtpAccountProvision(c, params, userId) {
+		const accountId = Number(params?.accountId);
+		const accountRow = await accountService.selectById(c, accountId);
+		if (!accountRow || accountRow.userId !== userId || accountRow.isDel === isDel.DELETE) {
+			throw new BizError('邮箱账号不存在或不属于当前用户');
+		}
+
+		let senderRow = await orm(c).select().from(senderIdentity).where(sql`${senderIdentity.email} COLLATE NOCASE = ${accountRow.email}`).get();
+		if (senderRow && (senderRow.userId !== userId || senderRow.isDel === isDel.DELETE)) {
+			senderRow = null;
+		}
+
+		if (!senderRow) {
+			senderRow = await orm(c).insert(senderIdentity).values({
+				userId,
+				email: accountRow.email,
+				name: accountRow.name || emailUtils.getName(accountRow.email),
+				domain: emailUtils.getDomain(accountRow.email),
+				type: senderIdentityConst.type.PLATFORM,
+				verifyToken: '',
+				verifyStatus: senderIdentityConst.verifyStatus.VERIFIED,
+				status: senderIdentityConst.status.OPEN,
+				isDel: isDel.NORMAL
+			}).returning().get();
+		}
+
+		if (senderRow.status !== senderIdentityConst.status.OPEN || senderRow.verifyStatus !== senderIdentityConst.verifyStatus.VERIFIED) {
+			throw new BizError('该邮箱发信身份未启用或未验证');
+		}
+
+		const apiKeyName = `SMTP ${accountRow.email}`.slice(0, 50);
+		let keyRow = await orm(c).select().from(apiKey).where(and(
+			eq(apiKey.userId, userId),
+			eq(apiKey.name, apiKeyName),
+			eq(apiKey.isDel, isDel.NORMAL)
+		)).get();
+
+		if (keyRow) {
+			if (keyRow.status !== apiKeyConst.status.OPEN) {
+				keyRow = await orm(c).update(apiKey).set({ status: apiKeyConst.status.OPEN }).where(eq(apiKey.apiKeyId, keyRow.apiKeyId)).returning().get();
+			}
+		} else {
+			const key = genApiKey();
+			const keyHash = await sha256(key);
+			const { day, month } = currentQuotaWindow();
+			keyRow = await orm(c).insert(apiKey).values({
+				userId,
+				name: apiKeyName,
+				keyHash,
+				keyPrefix: key.slice(0, 12),
+				status: apiKeyConst.status.OPEN,
+				quotaDate: day,
+				quotaMonth: month
+			}).returning().get();
+		}
+
+		const existing = await orm(c).select().from(smtpAccount).where(and(
+			eq(smtpAccount.userId, userId),
+			eq(smtpAccount.senderIdentityId, senderRow.senderIdentityId),
+			eq(smtpAccount.isDel, isDel.NORMAL)
+		)).get();
+
+		if (existing) {
+			await orm(c).update(smtpAccount).set({
+				apiKeyId: keyRow.apiKeyId,
+				name: params?.name ? String(params.name).trim().slice(0, 80) : existing.name,
+				status: smtpAccountConst.status.OPEN
+			}).where(eq(smtpAccount.smtpAccountId, existing.smtpAccountId)).run();
+			return this.smtpAccountResetPassword(c, { smtpAccountId: existing.smtpAccountId }, userId);
+		}
+
+		return this.smtpAccountCreate(c, {
+			name: String(params?.name || `SMTP ${accountRow.email}`).trim().slice(0, 80),
+			apiKeyId: keyRow.apiKeyId,
+			senderIdentityId: senderRow.senderIdentityId
+		}, userId);
+	},
+
 	async smtpAccountDelete(c, params, userId) {
 		const smtpAccountId = Number(params?.smtpAccountId);
 		await orm(c).update(smtpAccount).set({ isDel: isDel.DELETE })

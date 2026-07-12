@@ -25,6 +25,7 @@
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item v-if="hasPerm('email:send')" @click="openSetName(item)">{{ $t('rename') }}</el-dropdown-item>
+                    <el-dropdown-item v-if="hasPerm('email:send')" @click="provisionSmtp(item)">{{ $t('smtpService') }}</el-dropdown-item>
                     <el-dropdown-item v-if="item.accountId !== userStore.user.account.accountId" @click="setAsTop(item, index)">{{ $t('pin') }}</el-dropdown-item>
                     <el-dropdown-item v-if="item.accountId !== userStore.user.account.accountId && hasPerm('account:delete')"
                                       @click="remove(item)">{{ $t('delete') }}
@@ -114,6 +115,20 @@
         <span style="font-size: 12px;color: #F56C6C" v-if="botJsError">{{ $t('verifyModuleFailed') }}</span>
       </div>
     </el-dialog>
+    <el-dialog v-model="smtpCredentialShow" :title="$t('smtpCredentials')" width="440px">
+      <el-alert :title="$t('smtpPasswordOnceWarning')" type="warning" :closable="false"/>
+      <div class="smtp-credential-grid">
+        <span>{{ $t('smtpServer') }}</span><strong>{{ smtpCredentials.account?.smtpServer || '-' }}</strong>
+        <span>{{ $t('smtpPort') }}</span><strong>{{ smtpCredentials.account?.smtpPort || 587 }}</strong>
+        <span>{{ $t('smtpUsername') }}</span><strong>{{ smtpCredentials.account?.username || '' }}</strong>
+        <span>{{ $t('smtpPassword') }}</span><strong>{{ smtpCredentials.password || '' }}</strong>
+        <span>{{ $t('senderEmail') }}</span><strong>{{ smtpCredentials.account?.senderEmail || '' }}</strong>
+        <span>{{ $t('smtpSecure') }}</span><strong>{{ smtpCredentials.account?.smtpSecure === 'tls' ? 'SSL/TLS' : 'STARTTLS' }}</strong>
+      </div>
+      <el-button type="primary" class="smtp-copy" @click="copySmtpCredentials">
+        {{ $t('copy') }}
+      </el-button>
+    </el-dialog>
     <el-dialog v-model="setNameShow" :title="$t('changeUserName')">
       <div class="container">
         <el-input v-model="accountName" type="text" :placeholder="$t('username')" autocomplete="off">
@@ -136,6 +151,7 @@ import {
   accountSetAllReceive,
   accountSetAsTop
 } from "@/request/account.js";
+import {smtpAccountProvision} from "@/request/open-api.js";
 import {sleep} from "@/utils/time-utils.js"
 import {isEmail} from "@/utils/verify-utils.js";
 import {useSettingStore} from "@/store/setting.js";
@@ -152,6 +168,8 @@ const accountStore = useAccountStore();
 const settingStore = useSettingStore();
 const emailStore = useEmailStore();
 const showAdd = ref(false)
+const smtpCredentialShow = ref(false)
+const smtpCredentials = ref({})
 const addLoading = ref(false);
 const domainList = computed(() => settingStore.domainList)
 const accounts = reactive([])
@@ -349,6 +367,28 @@ function add() {
   setTimeout(() => {
     addRef.value.focus()
   }, 100)
+}
+
+function provisionSmtp(accountItem) {
+  smtpAccountProvision(accountItem.accountId, `SMTP ${accountItem.email}`).then(data => {
+    smtpCredentials.value = data || {};
+    smtpCredentialShow.value = true;
+  })
+}
+
+function copySmtpCredentials() {
+  const account = smtpCredentials.value.account || {};
+  const text = [
+    `${t('smtpServer')}: ${account.smtpServer || ''}`,
+    `${t('smtpPort')}: ${account.smtpPort || 587}`,
+    `${t('smtpUsername')}: ${account.username || ''}`,
+    `${t('smtpPassword')}: ${smtpCredentials.value.password || ''}`,
+    `${t('senderEmail')}: ${account.senderEmail || ''}`,
+    `${t('smtpSecure')}: ${account.smtpSecure === 'tls' ? 'SSL/TLS' : 'STARTTLS'}`
+  ].join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    ElMessage({message: t('copySuccessMsg'), type: 'success', plain: true});
+  });
 }
 
 function setAsTop(account, index) {
@@ -693,6 +733,29 @@ path[fill="#ffdda1"] {
   opacity: 0;
   pointer-events: none;
   position: fixed;
+}
+
+.smtp-credential-grid {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px 12px;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--sm-muted);
+
+  span {
+    color: var(--sm-muted-foreground);
+  }
+
+  strong {
+    overflow-wrap: anywhere;
+  }
+}
+
+.smtp-copy {
+  width: 100%;
+  margin-top: 16px;
 }
 
 </style>

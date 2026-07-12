@@ -212,6 +212,7 @@ const en = {
     apiKeyName: 'Key name',
     senderIdentity: 'Sender Identity',
     smtpAccount: 'SMTP Account',
+    smtpService: 'Configure SMTP',
     smtpAccountDesc: 'Customers can use an SMTP account to send mail. The password is shown only once.',
     createSmtpAccount: 'Create SMTP Account',
     smtpAccountName: 'Account name',

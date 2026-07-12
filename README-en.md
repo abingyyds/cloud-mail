@@ -241,6 +241,8 @@ SMTP_TLS_CERT=<TLS certificate PEM>
 
 After deploying the new main-system version, visit `/api/init/<jwt_secret>` once with the administrator JWT Secret to create the `smtp_account` table. SMTP accounts can then be created from the Developer page.
 
+Users can also create a mailbox from the left mailbox list, open that mailbox's settings menu, and choose **Configure SMTP**. The system automatically creates the sender identity and API Key, then displays the SMTP connection details.
+
 ## Project Structure
 
 ```

@@ -248,6 +248,8 @@ SMTP_TLS_CERT=<TLS 证书 PEM>
 
 部署主系统新版本后，用管理员 JWT Secret 访问一次 `/api/init/<jwt_secret>` 完成 `smtp_account` 表迁移，然后即可在开发者接入页面创建 SMTP 账号。
 
+用户也可以在左侧邮箱列表中创建邮箱，点击该邮箱的设置菜单 → **配置 SMTP**，系统会自动创建对应的发信身份和 API Key，并立即显示 SMTP 连接信息。
+
 ## 目录结构
 
 ```

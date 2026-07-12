@@ -32,6 +32,10 @@ export function smtpAccountCreate(params) {
     return http.post('/open/smtpAccount/create', params)
 }
 
+export function smtpAccountProvision(accountId, name) {
+    return http.post('/open/smtpAccount/provision', {accountId, name})
+}
+
 export function smtpAccountDelete(smtpAccountId) {
     return http.delete('/open/smtpAccount/delete', {params: {smtpAccountId}})
 }
