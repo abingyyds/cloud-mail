@@ -20,6 +20,8 @@ const exclude = [
 	'/open/sendNotice',
 	'/open/sendAutoMail',
 	'/open/sendStatus',
+	'/smtp/auth',
+	'/smtp/send',
 	'/telegram',
 	'/test',
 	'/oauth'

@@ -24,6 +24,26 @@ export function apiKeyQuota(params) {
     return http.put('/open/apiKey/quota', params)
 }
 
+export function smtpAccountList() {
+    return http.get('/open/smtpAccount/list')
+}
+
+export function smtpAccountCreate(params) {
+    return http.post('/open/smtpAccount/create', params)
+}
+
+export function smtpAccountDelete(smtpAccountId) {
+    return http.delete('/open/smtpAccount/delete', {params: {smtpAccountId}})
+}
+
+export function smtpAccountStatus(smtpAccountId, status) {
+    return http.put('/open/smtpAccount/status', {smtpAccountId, status})
+}
+
+export function smtpAccountResetPassword(smtpAccountId) {
+    return http.put('/open/smtpAccount/password', {smtpAccountId})
+}
+
 export function senderList() {
     return http.get('/open/sender/list')
 }

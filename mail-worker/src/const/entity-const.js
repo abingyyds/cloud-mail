@@ -21,6 +21,13 @@ export const apiKeyConst = {
 	}
 }
 
+export const smtpAccountConst = {
+	status: {
+		OPEN: 0,
+		CLOSE: 1
+	}
+}
+
 export const senderIdentityConst = {
 	status: {
 		OPEN: 0,

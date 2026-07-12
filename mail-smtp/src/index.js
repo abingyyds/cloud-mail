@@ -97,13 +97,23 @@ async function sendToSmmails(session, rawMessage) {
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), config.requestTimeout);
 
+	const dynamicMode = !config.users;
+	const endpoint = dynamicMode ? '/api/smtp/send' : '/api/open/sendAutoMail';
+	const headers = {
+		'Content-Type': 'application/json'
+	};
+	if (dynamicMode) {
+		headers['X-SMTP-Relay-Token'] = config.relayToken;
+		body.username = session.smtpUsername;
+		body.password = session.smtpPassword;
+	} else {
+		headers.Authorization = `Bearer ${session.smtpUser.apiKey}`;
+	}
+
 	try {
-		const response = await fetch(`${config.apiUrl}/api/open/sendAutoMail`, {
+		const response = await fetch(`${config.apiUrl}${endpoint}`, {
 			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${session.smtpUser.apiKey}`,
-				'Content-Type': 'application/json'
-			},
+			headers,
 			body: JSON.stringify(body),
 			signal: controller.signal
 		});
@@ -128,6 +138,34 @@ async function sendToSmmails(session, rawMessage) {
 	}
 }
 
+async function authenticateDynamic(username, password) {
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), config.requestTimeout);
+	try {
+		const response = await fetch(`${config.apiUrl}/api/smtp/auth`, {
+			method: 'POST',
+			headers: {
+				'X-SMTP-Relay-Token': config.relayToken,
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ username, password }),
+			signal: controller.signal
+		});
+		const result = await response.json();
+		if (!response.ok || result.code !== 200 || !result.data) {
+			throw new Error(result.message || 'SMTP 账号或密码错误');
+		}
+		return result.data;
+	} catch (error) {
+		if (error.name === 'AbortError') {
+			throw new Error('SMTP 认证请求超时');
+		}
+		throw error;
+	} finally {
+		clearTimeout(timeout);
+	}
+}
+
 const server = new SMTPServer({
 	secure: config.secure,
 	key: config.tls?.key,
@@ -147,13 +185,27 @@ const server = new SMTPServer({
 		}
 
 		const username = String(auth.username || '').trim();
-		const user = config.users.get(username);
-		if (!user || !safeEqual(auth.password || '', user.password)) {
-			return callback(authError());
+		const password = String(auth.password || '');
+
+		if (config.users) {
+			const user = config.users.get(username);
+			if (!user || !safeEqual(password, user.password)) {
+				return callback(authError());
+			}
+			session.smtpUser = user;
+			session.smtpUsername = username;
+			session.smtpPassword = password;
+			return callback(null, { user: username });
 		}
 
-		session.smtpUser = user;
-		return callback(null, { user: username });
+		authenticateDynamic(username, password)
+			.then(user => {
+				session.smtpUser = user;
+				session.smtpUsername = username;
+				session.smtpPassword = password;
+				callback(null, { user: username });
+			})
+			.catch(() => callback(authError()));
 	},
 
 	onMailFrom(address, session, callback) {
@@ -218,7 +270,7 @@ server.on('error', error => {
 
 server.listen(config.port, config.host, () => {
 	console.log(`[smtp] listening on ${config.host}:${config.port} secure=${config.secure}`);
-	console.log(`[smtp] users=${config.users.size} api=${config.apiUrl}`);
+	console.log(`[smtp] mode=${config.users ? 'static' : 'dynamic'} api=${config.apiUrl}`);
 });
 
 for (const signal of ['SIGTERM', 'SIGINT']) {

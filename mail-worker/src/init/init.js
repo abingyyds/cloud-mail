@@ -32,8 +32,39 @@ const dbInit = {
 		await this.v3_1DB(c);
 		await this.v3_2DB(c);
 		await this.v3_3DB(c);
+		await this.v3_4DB(c);
 		await settingService.refresh(c);
 		return c.text('success');
+	},
+
+	async v3_4DB(c) {
+		const SQL_LIST = [
+			`CREATE TABLE IF NOT EXISTS smtp_account (
+				smtp_account_id INTEGER PRIMARY KEY AUTOINCREMENT,
+				user_id INTEGER NOT NULL,
+				api_key_id INTEGER NOT NULL,
+				sender_identity_id INTEGER NOT NULL,
+				name TEXT NOT NULL DEFAULT '',
+				username TEXT NOT NULL COLLATE NOCASE,
+				password_hash TEXT NOT NULL,
+				password_salt TEXT NOT NULL,
+				status INTEGER NOT NULL DEFAULT 0,
+				last_use_time DATETIME,
+				create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+				is_del INTEGER NOT NULL DEFAULT 0
+			);`,
+			`CREATE UNIQUE INDEX IF NOT EXISTS idx_smtp_account_username ON smtp_account(username COLLATE NOCASE);`,
+			`CREATE INDEX IF NOT EXISTS idx_smtp_account_user_id ON smtp_account(user_id);`,
+			`CREATE INDEX IF NOT EXISTS idx_smtp_account_api_key_id ON smtp_account(api_key_id);`
+		];
+
+		await Promise.all(SQL_LIST.map(async (sql) => {
+			try {
+				await c.env.db.prepare(sql).run();
+			} catch (e) {
+				console.warn(`跳过 SMTP 账号数据：${e.message}`);
+			}
+		}));
 	},
 
 	async v3_3DB(c) {

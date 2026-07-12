@@ -26,9 +26,7 @@ function parseUsers() {
 		}]);
 	}
 
-	if (!raw) {
-		throw new Error('SMTP_USERS_JSON 或 SMTP_USERNAME/SMTP_PASSWORD/SMMAILS_API_KEY/SMTP_FROM_EMAIL 未配置');
-	}
+	if (!raw) return null;
 
 	let parsed;
 	try {
@@ -85,13 +83,25 @@ function readTlsFile(filePath, name) {
 	return fs.readFileSync(resolved);
 }
 
+function readTlsValue(inlineValue, filePath, name) {
+	if (inlineValue) {
+		return String(inlineValue).replace(/\\n/g, '\n');
+	}
+	return readTlsFile(filePath, name);
+}
+
 const secure = bool(process.env.SMTP_SECURE, false);
 const requireTls = bool(process.env.SMTP_REQUIRE_TLS, true);
 const allowInsecureAuth = bool(process.env.SMTP_ALLOW_INSECURE_AUTH, false);
 const tlsKeyPath = process.env.SMTP_TLS_KEY_PATH || '';
 const tlsCertPath = process.env.SMTP_TLS_CERT_PATH || '';
-const tls = tlsKeyPath && tlsCertPath
-	? { key: readTlsFile(tlsKeyPath, 'SMTP_TLS_KEY_PATH'), cert: readTlsFile(tlsCertPath, 'SMTP_TLS_CERT_PATH') }
+const tlsKey = process.env.SMTP_TLS_KEY || '';
+const tlsCert = process.env.SMTP_TLS_CERT || '';
+const tls = (tlsKey || tlsKeyPath) && (tlsCert || tlsCertPath)
+	? {
+		key: readTlsValue(tlsKey, tlsKeyPath, 'SMTP_TLS_KEY_PATH'),
+		cert: readTlsValue(tlsCert, tlsCertPath, 'SMTP_TLS_CERT_PATH')
+	}
 	: undefined;
 
 if ((secure || (requireTls && !allowInsecureAuth)) && !tls) {
@@ -106,6 +116,7 @@ const config = {
 	requireTls,
 	allowInsecureAuth,
 	apiUrl: String(process.env.SMMAILS_API_URL || '').replace(/\/$/, ''),
+	relayToken: String(process.env.SMTP_RELAY_TOKEN || '').trim(),
 	requestTimeout: positiveInt(process.env.SMMAILS_API_TIMEOUT_MS, 30000),
 	maxMessageSize: positiveInt(process.env.SMTP_MAX_MESSAGE_SIZE, 10 * 1024 * 1024),
 	maxRecipients: positiveInt(process.env.SMTP_MAX_RECIPIENTS, 50),
@@ -114,6 +125,10 @@ const config = {
 
 if (!config.apiUrl) {
 	throw new Error('SMMAILS_API_URL 未配置');
+}
+
+if (!config.users && !config.relayToken) {
+	throw new Error('动态账号模式必须配置 SMTP_RELAY_TOKEN；静态兼容模式请配置 SMTP_USERS_JSON');
 }
 
 export default config;

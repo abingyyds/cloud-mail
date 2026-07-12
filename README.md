@@ -211,17 +211,42 @@ Cloudflare Worker 不能监听 TCP 587/465，因此不能直接把 Worker 作为
 客户产品 -- SMTP 587/STARTTLS --> mail-smtp Relay -- HTTPS --> 本项目 Open API
 ```
 
-部署 `mail-smtp` 后，客户产品可以使用以下配置：
+部署 `mail-smtp` 后，平台管理员可以在“开发者接入 → SMTP 账号”创建客户账号，密码只显示一次。客户产品可以使用以下配置：
 
 ```text
 SMTP 服务器：smtp.example.com
 SMTP 端口：587
 SMTP 账号：product-a
-SMTP 密码：Relay 中配置的 SMTP_PASSWORD
+SMTP 密码：产品内创建 SMTP 账号时生成的密码
 SMTP SSL：587 使用 STARTTLS，465 使用隐式 TLS
 ```
 
-Relay 会校验 SMTP 账号密码、限制发件地址，并将邮件（包括附件）转发到当前项目；实际发信额度、发信身份和日志继续由 Open API 管理。详细配置见 [mail-smtp/README.md](mail-smtp/README.md)。
+Relay 会通过 `SMTP_RELAY_TOKEN` 动态向主系统验证 SMTP 账号密码，限制发件地址，并将邮件（包括附件）转发到当前项目；实际发信额度、发信身份和日志继续由 Open API 管理。详细配置见 [mail-smtp/README.md](mail-smtp/README.md)。
+
+Railway 部署时建议将主邮件系统和 `mail-smtp` 分成两个 Service，并在 SMTP Service 的 Networking 中开启 TCP Proxy。主系统和 Relay 必须配置相同的 `SMTP_RELAY_TOKEN`；客户最终使用 Railway TCP Proxy 提供的地址和端口。
+
+主邮件系统 Service 配置：
+
+```text
+SMTP_RELAY_HOST=<Railway TCP Proxy 地址>
+SMTP_RELAY_PORT=<Railway TCP Proxy 端口>
+SMTP_RELAY_SECURE=starttls
+SMTP_RELAY_TOKEN=<随机长字符串>
+```
+
+`mail-smtp` Service 配置：
+
+```text
+SMMAILS_API_URL=https://<主邮件系统域名>
+SMTP_RELAY_TOKEN=<与主系统相同>
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_REQUIRE_TLS=true
+SMTP_TLS_KEY=<TLS 私钥 PEM>
+SMTP_TLS_CERT=<TLS 证书 PEM>
+```
+
+部署主系统新版本后，用管理员 JWT Secret 访问一次 `/api/init/<jwt_secret>` 完成 `smtp_account` 表迁移，然后即可在开发者接入页面创建 SMTP 账号。
 
 ## 目录结构
 

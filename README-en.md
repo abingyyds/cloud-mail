@@ -204,17 +204,42 @@ Cloudflare Workers cannot listen on TCP ports 587/465, so the Worker cannot be u
 Customer product -- SMTP 587/STARTTLS --> mail-smtp Relay -- HTTPS --> SMmails Open API
 ```
 
-After deploying `mail-smtp`, customer products can use:
+After deploying `mail-smtp`, platform administrators can create customer accounts in **Developer → SMTP Accounts**. The password is shown only once. Customer products can use:
 
 ```text
 SMTP server: smtp.example.com
 SMTP port: 587
 SMTP username: product-a
-SMTP password: SMTP_PASSWORD configured in the Relay
+SMTP password: password generated when the SMTP account is created in the product
 SMTP security: STARTTLS on 587, implicit TLS on 465
 ```
 
-The Relay authenticates SMTP accounts, restricts sender addresses, and forwards messages (including attachments) to this project. Quotas, verified sender identities, and logs remain managed by the Open API. See [mail-smtp/README.md](mail-smtp/README.md) for deployment details.
+The Relay dynamically authenticates SMTP accounts through `SMTP_RELAY_TOKEN`, restricts sender addresses, and forwards messages (including attachments) to this project. Quotas, verified sender identities, and logs remain managed by the Open API. See [mail-smtp/README.md](mail-smtp/README.md) for deployment details.
+
+For Railway, deploy the main mail system and `mail-smtp` as separate services, enable a TCP Proxy on the SMTP service, and configure the same `SMTP_RELAY_TOKEN` on both services. Customers should use the address and port assigned by Railway's TCP Proxy.
+
+Main mail system variables:
+
+```text
+SMTP_RELAY_HOST=<Railway TCP Proxy host>
+SMTP_RELAY_PORT=<Railway TCP Proxy port>
+SMTP_RELAY_SECURE=starttls
+SMTP_RELAY_TOKEN=<long random secret>
+```
+
+`mail-smtp` variables:
+
+```text
+SMMAILS_API_URL=https://<main-mail-system-domain>
+SMTP_RELAY_TOKEN=<same value as the main system>
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_REQUIRE_TLS=true
+SMTP_TLS_KEY=<TLS private-key PEM>
+SMTP_TLS_CERT=<TLS certificate PEM>
+```
+
+After deploying the new main-system version, visit `/api/init/<jwt_secret>` once with the administrator JWT Secret to create the `smtp_account` table. SMTP accounts can then be created from the Developer page.
 
 ## Project Structure
 

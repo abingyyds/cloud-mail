@@ -129,6 +129,54 @@
         </section>
       </el-tab-pane>
 
+      <el-tab-pane :label="$t('smtpAccount')" name="smtp">
+        <section class="section">
+          <div class="section-head">
+            <div>
+              <h2>{{ $t('smtpAccount') }}</h2>
+              <p>{{ $t('smtpAccountDesc') }}</p>
+            </div>
+            <el-button type="primary" @click="smtpDialog = true">
+              <Icon icon="fluent:mail-settings-20-regular"/>
+              {{ $t('createSmtpAccount') }}
+            </el-button>
+          </div>
+
+          <el-alert v-if="!overview.smtp?.relayConfigured" :title="$t('smtpRelayNotConfigured')" type="warning" :closable="false"/>
+
+          <el-table :data="smtpAccounts" v-loading="loading">
+            <el-table-column prop="name" :label="$t('smtpAccountName')" min-width="150"/>
+            <el-table-column prop="username" :label="$t('smtpUsername')" min-width="180"/>
+            <el-table-column prop="senderEmail" :label="$t('senderEmail')" min-width="220"/>
+            <el-table-column :label="$t('smtpServer')" min-width="190">
+              <template #default="{row}">
+                <span>{{ row.smtpServer || '-' }}:{{ row.smtpPort }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column :label="$t('status')" min-width="120">
+              <template #default="{row}">
+                <el-tag :type="row.status === 0 ? 'success' : 'info'">
+                  {{ row.status === 0 ? $t('enabled') : $t('disabled') }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="lastUseTime" :label="$t('activeTime')" min-width="180"/>
+            <el-table-column :label="$t('action')" width="280" fixed="right">
+              <template #default="{row}">
+                <el-switch :model-value="row.status" :active-value="0" :inactive-value="1"
+                           @change="setSmtpAccountStatus(row, $event)"/>
+                <el-button link type="primary" @click="resetSmtpPassword(row)">
+                  {{ $t('resetSmtpPassword') }}
+                </el-button>
+                <el-button link type="danger" @click="removeSmtpAccount(row.smtpAccountId)">
+                  {{ $t('delete') }}
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </section>
+      </el-tab-pane>
+
       <el-tab-pane :label="$t('apiSendLogs')" name="logs">
         <section class="section">
           <div class="section-head">
@@ -275,6 +323,45 @@
         {{ $t('confirm') }}
       </el-button>
     </el-dialog>
+
+    <el-dialog v-model="smtpDialog" :title="$t('createSmtpAccount')" width="460px" @closed="resetSmtpForm">
+      <el-form label-position="top">
+        <el-form-item :label="$t('smtpAccountName')">
+          <el-input v-model="smtpForm.name" :placeholder="$t('smtpAccountNamePlaceholder')"/>
+        </el-form-item>
+        <el-form-item :label="$t('smtpUsername')">
+          <el-input v-model="smtpForm.username" :placeholder="$t('smtpUsernamePlaceholder')"/>
+        </el-form-item>
+        <el-form-item :label="$t('apiKey')">
+          <el-select v-model="smtpForm.apiKeyId" style="width: 100%" :placeholder="$t('selectApiKey')">
+            <el-option v-for="item in apiKeys" :key="item.apiKeyId" :label="`${item.name} (${item.keyPrefix})`" :value="item.apiKeyId"/>
+          </el-select>
+        </el-form-item>
+        <el-form-item :label="$t('senderIdentity')">
+          <el-select v-model="smtpForm.senderIdentityId" style="width: 100%" :placeholder="$t('selectSenderIdentity')">
+            <el-option v-for="item in verifiedSenders" :key="item.senderIdentityId" :label="`${item.name || '-'} <${item.email}>`" :value="item.senderIdentityId"/>
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <el-button type="primary" style="width: 100%;" :loading="loading" @click="createSmtpAccount">
+        {{ $t('confirm') }}
+      </el-button>
+    </el-dialog>
+
+    <el-dialog v-model="createdSmtpDialog" :title="$t('smtpCredentials')" width="560px">
+      <el-alert :title="$t('smtpPasswordOnceWarning')" type="warning" :closable="false"/>
+      <div class="smtp-credential-grid">
+        <span>{{ $t('smtpServer') }}</span><strong>{{ createdSmtp.account?.smtpServer || '-' }}</strong>
+        <span>{{ $t('smtpPort') }}</span><strong>{{ createdSmtp.account?.smtpPort || 587 }}</strong>
+        <span>{{ $t('smtpUsername') }}</span><strong>{{ createdSmtp.account?.username }}</strong>
+        <span>{{ $t('smtpPassword') }}</span><strong>{{ createdSmtp.password }}</strong>
+        <span>{{ $t('senderEmail') }}</span><strong>{{ createdSmtp.account?.senderEmail }}</strong>
+        <span>{{ $t('smtpSecure') }}</span><strong>{{ createdSmtp.account?.smtpSecure === 'tls' ? 'SSL/TLS' : 'STARTTLS' }}</strong>
+      </div>
+      <el-button type="primary" style="width: 100%; margin-top: 16px" @click="copySmtpCredentials">
+        {{ $t('copy') }}
+      </el-button>
+    </el-dialog>
   </div>
 </template>
 
@@ -292,7 +379,12 @@ import {
   senderDelete,
   senderList,
   senderStatus,
-  senderVerify
+  senderVerify,
+  smtpAccountCreate,
+  smtpAccountDelete,
+  smtpAccountList,
+  smtpAccountStatus,
+  smtpAccountResetPassword
 } from '@/request/open-api.js';
 import {ElMessage, ElMessageBox} from 'element-plus';
 import {useI18n} from 'vue-i18n';
@@ -307,13 +399,17 @@ const logLoading = ref(false);
 const overview = ref({});
 const apiKeys = ref([]);
 const senders = ref([]);
+const smtpAccounts = ref([]);
 const logs = ref([]);
 const logTotal = ref(0);
 const apiKeyDialog = ref(false);
 const createdKeyDialog = ref(false);
 const quotaDialog = ref(false);
 const senderDialog = ref(false);
+const smtpDialog = ref(false);
+const createdSmtpDialog = ref(false);
 const createdKey = ref('');
+const createdSmtp = ref({});
 const apiKeyForm = reactive({
   name: '',
   dayLimit: 0,
@@ -329,6 +425,12 @@ const quotaForm = reactive({
 const senderForm = reactive({
   email: '',
   name: ''
+});
+const smtpForm = reactive({
+  name: '',
+  username: '',
+  apiKeyId: '',
+  senderIdentityId: ''
 });
 const logParams = reactive({
   num: 1,
@@ -347,6 +449,8 @@ const mailTypeOptions = computed(() => [
 const selectedSenderEmail = computed(() => {
   return senders.value.find(item => item.verifyStatus === 0 && item.status === 0)?.email || 'no-reply@example.com';
 });
+
+const verifiedSenders = computed(() => senders.value.filter(item => item.verifyStatus === 0 && item.status === 0));
 
 const codeExample = computed(() => {
   return `curl -X POST ${location.origin}/api/open/sendCode \\
@@ -389,11 +493,12 @@ onMounted(loadData);
 
 function loadData() {
   loading.value = true;
-  Promise.all([openOverview(), apiKeyList(), senderList()])
-      .then(([overviewData, keys, identities]) => {
+  Promise.all([openOverview(), apiKeyList(), senderList(), smtpAccountList()])
+      .then(([overviewData, keys, identities, accounts]) => {
         overview.value = overviewData || {};
         apiKeys.value = keys || [];
         senders.value = identities || [];
+        smtpAccounts.value = accounts || [];
         if (activeTab.value === 'logs') {
           loadLogs();
         }
@@ -496,6 +601,45 @@ function removeSender(senderIdentityId) {
   });
 }
 
+function createSmtpAccount() {
+  loading.value = true;
+  smtpAccountCreate({...smtpForm})
+      .then(data => {
+        createdSmtp.value = data || {};
+        createdSmtpDialog.value = true;
+        smtpDialog.value = false;
+        loadData();
+      })
+      .finally(() => {
+        loading.value = false;
+      });
+}
+
+function setSmtpAccountStatus(row, status) {
+  smtpAccountStatus(row.smtpAccountId, status).then(loadData);
+}
+
+function removeSmtpAccount(smtpAccountId) {
+  ElMessageBox.confirm(t('delConfirm', {msg: t('smtpAccount')})).then(() => {
+    smtpAccountDelete(smtpAccountId).then(loadData);
+  });
+}
+
+function resetSmtpPassword(row) {
+  ElMessageBox.confirm(t('resetSmtpPasswordConfirm')).then(() => {
+    loading.value = true;
+    smtpAccountResetPassword(row.smtpAccountId)
+        .then(data => {
+          createdSmtp.value = data || {};
+          createdSmtpDialog.value = true;
+          loadData();
+        })
+        .finally(() => {
+          loading.value = false;
+        });
+  });
+}
+
 function resetApiKeyForm() {
   apiKeyForm.name = '';
   apiKeyForm.dayLimit = 0;
@@ -513,6 +657,26 @@ function resetQuotaForm() {
 function resetSenderForm() {
   senderForm.email = '';
   senderForm.name = '';
+}
+
+function resetSmtpForm() {
+  smtpForm.name = '';
+  smtpForm.username = '';
+  smtpForm.apiKeyId = '';
+  smtpForm.senderIdentityId = '';
+}
+
+function copySmtpCredentials() {
+  const account = createdSmtp.value.account || {};
+  const text = [
+    `${t('smtpServer')}: ${account.smtpServer || ''}`,
+    `${t('smtpPort')}: ${account.smtpPort || 587}`,
+    `${t('smtpUsername')}: ${account.username || ''}`,
+    `${t('smtpPassword')}: ${createdSmtp.value.password || ''}`,
+    `${t('senderEmail')}: ${account.senderEmail || ''}`,
+    `${t('smtpSecure')}: ${account.smtpSecure === 'tls' ? 'SSL/TLS' : 'STARTTLS'}`
+  ].join('\n');
+  copy(text);
 }
 
 function formatUsage(used, limit) {
@@ -698,6 +862,25 @@ pre {
 
 .secret-input {
   margin-top: 14px;
+}
+
+.smtp-credential-grid {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px 14px;
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 8px;
+  background: var(--sm-muted);
+
+  span {
+    color: var(--sm-muted-foreground);
+  }
+
+  strong {
+    overflow-wrap: anywhere;
+    color: var(--sm-foreground);
+  }
 }
 
 .limit-grid {

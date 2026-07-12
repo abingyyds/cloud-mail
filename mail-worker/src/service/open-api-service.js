@@ -4,6 +4,7 @@ import BizError from '../error/biz-error';
 import orm from '../entity/orm';
 import apiKey from '../entity/api-key';
 import senderIdentity from '../entity/sender-identity';
+import smtpAccount from '../entity/smtp-account';
 import email from '../entity/email';
 import accountService from './account-service';
 import emailUtils from '../utils/email-utils';
@@ -11,8 +12,9 @@ import verifyUtils from '../utils/verify-utils';
 import publicService from './public-service';
 import userService from './user-service';
 import roleService from './role-service';
-import { apiKeyConst, emailConst, isDel, senderIdentityConst } from '../const/entity-const';
+import { apiKeyConst, emailConst, isDel, senderIdentityConst, smtpAccountConst } from '../const/entity-const';
 import { t } from '../i18n/i18n';
+import saltHashUtils from '../utils/crypto-utils';
 
 const encoder = new TextEncoder();
 const MAX_LOG_SIZE = 50;
@@ -113,6 +115,26 @@ function maskSender(row) {
 	};
 }
 
+function maskSmtpAccount(row, senderRow, c) {
+	const relay = getRelayConfig(c);
+	return {
+		smtpAccountId: row.smtpAccountId,
+		name: row.name,
+		username: row.username,
+		status: row.status,
+		apiKeyId: row.apiKeyId,
+		senderIdentityId: row.senderIdentityId,
+		senderEmail: senderRow?.email || '',
+		senderName: senderRow?.name || '',
+		lastUseTime: row.lastUseTime,
+		createTime: row.createTime,
+		smtpServer: relay.host,
+		smtpPort: relay.port,
+		smtpSecure: relay.secure,
+		relayConfigured: relay.configured
+	};
+}
+
 function parseRecipientJson(value) {
 	try {
 		const list = JSON.parse(value || '[]');
@@ -150,6 +172,55 @@ function normalizeQuotaParams(params) {
 		monthLimit: normalizeLimit(params.monthLimit),
 		totalLimit: normalizeLimit(params.totalLimit)
 	};
+}
+
+function normalizeSmtpUsername(value) {
+	const username = String(value || '').trim();
+	if (!username) {
+		return '';
+	}
+	if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{2,63}$/.test(username)) {
+		throw new BizError('SMTP 账号只能使用 3-64 位字母、数字、点、下划线或短横线');
+	}
+	return username;
+}
+
+function getRelayConfig(c) {
+	const host = String(
+		c.env.smtp_relay_host || c.env.SMTP_RELAY_HOST || ''
+	).trim();
+	const portValue = Number(c.env.smtp_relay_port || c.env.SMTP_RELAY_PORT || 587);
+	const port = Number.isInteger(portValue) && portValue > 0 && portValue <= 65535 ? portValue : 587;
+	const secureValue = String(c.env.smtp_relay_secure || c.env.SMTP_RELAY_SECURE || 'starttls').toLowerCase();
+	const secure = ['tls', 'ssl', 'implicit-tls'].includes(secureValue) ? 'tls' : 'starttls';
+
+	return {
+		host,
+		port,
+		secure,
+		configured: !!host
+	};
+}
+
+function generateSmtpSecret(length = 24) {
+	const bytes = new Uint8Array(length);
+	crypto.getRandomValues(bytes);
+	return bytesToBase64Url(bytes);
+}
+
+function generateSmtpUsername() {
+	return `smtp_${generateSmtpSecret(9)}`;
+}
+
+function relayTokenEquals(input, expected) {
+	const a = new TextEncoder().encode(String(input || ''));
+	const b = new TextEncoder().encode(String(expected || ''));
+	if (a.length !== b.length || a.length === 0) return false;
+	let result = 0;
+	for (let i = 0; i < a.length; i += 1) {
+		result |= a[i] ^ b[i];
+	}
+	return result === 0;
 }
 
 async function queryDnsTxt(name) {
@@ -194,7 +265,8 @@ const openApiService = {
 			},
 			apiKeyCount: keyTotal.total,
 			senderCount: senderTotal.total,
-			apiLogCount: logTotal.total
+			apiLogCount: logTotal.total,
+			smtp: getRelayConfig(c)
 		};
 	},
 
@@ -250,6 +322,214 @@ const openApiService = {
 		await orm(c).update(apiKey).set(normalizeQuotaParams(params || {})).where(
 			and(eq(apiKey.apiKeyId, Number(params.apiKeyId)), eq(apiKey.userId, userId))
 		).run();
+	},
+
+	async smtpAccountList(c, userId) {
+		const rows = await orm(c).select({
+			account: smtpAccount,
+			sender: senderIdentity
+		}).from(smtpAccount)
+			.leftJoin(senderIdentity, eq(senderIdentity.senderIdentityId, smtpAccount.senderIdentityId))
+			.where(and(eq(smtpAccount.userId, userId), eq(smtpAccount.isDel, isDel.NORMAL)))
+			.orderBy(desc(smtpAccount.smtpAccountId))
+			.all();
+
+		return rows.map(row => maskSmtpAccount(row.account, row.sender, c));
+	},
+
+	async smtpAccountCreate(c, params, userId) {
+		params = params || {};
+		const name = String(params.name || '').trim().slice(0, 80);
+		const username = normalizeSmtpUsername(params.username) || generateSmtpUsername();
+		const apiKeyId = Number(params.apiKeyId);
+		const senderIdentityId = Number(params.senderIdentityId);
+
+		if (!name) {
+			throw new BizError('SMTP 账号名称不能为空');
+		}
+		if (!Number.isInteger(apiKeyId) || apiKeyId <= 0) {
+			throw new BizError('请选择 API Key');
+		}
+		if (!Number.isInteger(senderIdentityId) || senderIdentityId <= 0) {
+			throw new BizError('请选择发信身份');
+		}
+
+		const [apiKeyRow, senderRow, existing] = await Promise.all([
+			orm(c).select().from(apiKey).where(and(
+				eq(apiKey.apiKeyId, apiKeyId),
+				eq(apiKey.userId, userId),
+				eq(apiKey.status, apiKeyConst.status.OPEN),
+				eq(apiKey.isDel, isDel.NORMAL)
+			)).get(),
+			orm(c).select().from(senderIdentity).where(and(
+				eq(senderIdentity.senderIdentityId, senderIdentityId),
+				eq(senderIdentity.userId, userId),
+				eq(senderIdentity.status, senderIdentityConst.status.OPEN),
+				eq(senderIdentity.verifyStatus, senderIdentityConst.verifyStatus.VERIFIED),
+				eq(senderIdentity.isDel, isDel.NORMAL)
+			)).get(),
+			orm(c).select().from(smtpAccount).where(sql`${smtpAccount.username} COLLATE NOCASE = ${username}`).get()
+		]);
+
+		if (!apiKeyRow) {
+			throw new BizError('API Key 不存在、已禁用或不属于当前用户');
+		}
+		if (!senderRow) {
+			throw new BizError('发信身份不存在、未验证或不属于当前用户');
+		}
+		if (existing && existing.isDel === isDel.NORMAL) {
+			throw new BizError('SMTP 账号已存在');
+		}
+
+		const password = String(params.password || '').trim() || generateSmtpSecret();
+		if (password.length < 12 || password.length > 128) {
+			throw new BizError('SMTP 密码长度必须在 12 到 128 位之间');
+		}
+		const { salt, hash } = await saltHashUtils.hashPassword(password);
+		const values = {
+			userId,
+			apiKeyId,
+			senderIdentityId,
+			name,
+			username,
+			passwordHash: hash,
+			passwordSalt: salt,
+			status: smtpAccountConst.status.OPEN,
+			isDel: isDel.NORMAL
+		};
+
+		let row;
+		if (existing) {
+			row = await orm(c).update(smtpAccount).set(values)
+				.where(eq(smtpAccount.smtpAccountId, existing.smtpAccountId)).returning().get();
+		} else {
+			row = await orm(c).insert(smtpAccount).values(values).returning().get();
+		}
+
+		return {
+			account: maskSmtpAccount(row, senderRow, c),
+			password
+		};
+	},
+
+	async smtpAccountDelete(c, params, userId) {
+		const smtpAccountId = Number(params?.smtpAccountId);
+		await orm(c).update(smtpAccount).set({ isDel: isDel.DELETE })
+			.where(and(
+				eq(smtpAccount.smtpAccountId, smtpAccountId),
+				eq(smtpAccount.userId, userId)
+			)).run();
+	},
+
+	async smtpAccountSetStatus(c, params, userId) {
+		const smtpAccountId = Number(params?.smtpAccountId);
+		const status = Number(params?.status);
+		if (![smtpAccountConst.status.OPEN, smtpAccountConst.status.CLOSE].includes(status)) {
+			throw new BizError('SMTP 账号状态无效');
+		}
+		await orm(c).update(smtpAccount).set({ status })
+			.where(and(
+				eq(smtpAccount.smtpAccountId, smtpAccountId),
+				eq(smtpAccount.userId, userId),
+				eq(smtpAccount.isDel, isDel.NORMAL)
+			)).run();
+	},
+
+	async smtpAccountResetPassword(c, params, userId) {
+		const smtpAccountId = Number(params?.smtpAccountId);
+		const row = await orm(c).select({
+			account: smtpAccount,
+			sender: senderIdentity
+		}).from(smtpAccount)
+			.leftJoin(senderIdentity, eq(senderIdentity.senderIdentityId, smtpAccount.senderIdentityId))
+			.where(and(
+				eq(smtpAccount.smtpAccountId, smtpAccountId),
+				eq(smtpAccount.userId, userId),
+				eq(smtpAccount.isDel, isDel.NORMAL)
+			)).get();
+
+		if (!row?.account || !row.sender) {
+			throw new BizError('SMTP 账号不存在');
+		}
+
+		const password = generateSmtpSecret();
+		const { salt, hash } = await saltHashUtils.hashPassword(password);
+		const updated = await orm(c).update(smtpAccount).set({
+			passwordHash: hash,
+			passwordSalt: salt
+		}).where(eq(smtpAccount.smtpAccountId, smtpAccountId)).returning().get();
+
+		return {
+			account: maskSmtpAccount(updated, row.sender, c),
+			password
+		};
+	},
+
+	async verifyRelay(c) {
+		const expected = c.env.smtp_relay_token || c.env.SMTP_RELAY_TOKEN || '';
+		const provided = c.req.header('X-SMTP-Relay-Token') || '';
+		if (!relayTokenEquals(provided, expected)) {
+			throw new BizError('SMTP Relay 未授权', 401);
+		}
+	},
+
+	async smtpAccountAuthenticate(c, params) {
+		const username = String(params?.username || '').trim();
+		const password = String(params?.password || '');
+		const row = await orm(c).select({
+			account: smtpAccount,
+			sender: senderIdentity,
+			key: apiKey
+		}).from(smtpAccount)
+			.leftJoin(senderIdentity, eq(senderIdentity.senderIdentityId, smtpAccount.senderIdentityId))
+			.leftJoin(apiKey, eq(apiKey.apiKeyId, smtpAccount.apiKeyId))
+			.where(and(
+				sql`${smtpAccount.username} COLLATE NOCASE = ${username}`,
+				eq(smtpAccount.status, smtpAccountConst.status.OPEN),
+				eq(smtpAccount.isDel, isDel.NORMAL)
+			)).get();
+
+		if (!row || !row.sender || !row.key || row.key.status !== apiKeyConst.status.OPEN || row.key.isDel === isDel.DELETE || row.sender.status !== senderIdentityConst.status.OPEN || row.sender.verifyStatus !== senderIdentityConst.verifyStatus.VERIFIED || row.sender.isDel === isDel.DELETE) {
+			throw new BizError('SMTP 账号、API Key 或发信身份不可用', 535);
+		}
+
+		const valid = await saltHashUtils.verifyPassword(password, row.account.passwordSalt, row.account.passwordHash);
+		if (!valid) {
+			throw new BizError('SMTP 账号或密码错误', 535);
+		}
+
+		await orm(c).update(smtpAccount).set({ lastUseTime: sql`CURRENT_TIMESTAMP` })
+			.where(eq(smtpAccount.smtpAccountId, row.account.smtpAccountId)).run();
+
+		return {
+			account: row.account,
+			key: row.key,
+			sender: row.sender
+		};
+	},
+
+	async smtpAuth(c, params) {
+		await this.verifyRelay(c);
+		const { account, sender } = await this.smtpAccountAuthenticate(c, params);
+		return {
+			username: account.username,
+			fromEmails: [sender.email]
+		};
+	},
+
+	async smtpSend(c, params) {
+		await this.verifyRelay(c);
+		const { account, key, sender } = await this.smtpAccountAuthenticate(c, params);
+		const sendParams = {
+			...params,
+			fromEmail: sender.email,
+			accountEmail: sender.email,
+			deliveryAccountEmail: sender.email,
+			senderUserId: account.userId,
+			apiKeyId: account.apiKeyId,
+			trustedSenderIdentity: true
+		};
+		return this.sendWithQuotaForKey(c, sendParams, key, publicService.sendAutoMail.bind(publicService));
 	},
 
 	async senderList(c, userId) {
@@ -489,7 +769,12 @@ const openApiService = {
 	},
 
 	async sendWithQuota(c, params, sender) {
-		const prepared = await this.prepareSend(c, params || {});
+		const keyRow = await this.verifyApiKey(c);
+		return this.sendWithQuotaForKey(c, params, keyRow, sender);
+	},
+
+	async sendWithQuotaForKey(c, params, keyRow, sender) {
+		const prepared = await this.prepareSendWithKey(c, params || {}, keyRow);
 		await this.reserveQuota(c, prepared.keyRow, prepared.recipientCount);
 
 		try {
@@ -502,6 +787,10 @@ const openApiService = {
 
 	async prepareSend(c, params) {
 		const keyRow = await this.verifyApiKey(c);
+		return this.prepareSendWithKey(c, params, keyRow);
+	},
+
+	async prepareSendWithKey(c, params, keyRow) {
 		const senderRow = await this.assertSender(c, params.fromEmail, keyRow.userId);
 		const recipientCount = normalizeRecipientCount(params);
 		this.assertQuota(keyRow, recipientCount);
