@@ -294,10 +294,6 @@ jobs:
           
           WORKER_URL=$(grep -o "https://.*\.workers\.dev" deploy.log | head -n 1 || true)
           
-          if [ -n "$WORKER_URL" ]; then
-            echo "::add-mask::$WORKER_URL"
-          fi
-
           # GitHub may suppress URL step outputs as potential secrets. Keep the
           # URL in the shared workspace so the initialization step can use it.
           printf '%s' "$WORKER_URL" > .worker-url
