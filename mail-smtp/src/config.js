@@ -86,14 +86,16 @@ function readTlsFile(filePath, name) {
 }
 
 const secure = bool(process.env.SMTP_SECURE, false);
+const requireTls = bool(process.env.SMTP_REQUIRE_TLS, true);
+const allowInsecureAuth = bool(process.env.SMTP_ALLOW_INSECURE_AUTH, false);
 const tlsKeyPath = process.env.SMTP_TLS_KEY_PATH || '';
 const tlsCertPath = process.env.SMTP_TLS_CERT_PATH || '';
 const tls = tlsKeyPath && tlsCertPath
 	? { key: readTlsFile(tlsKeyPath, 'SMTP_TLS_KEY_PATH'), cert: readTlsFile(tlsCertPath, 'SMTP_TLS_CERT_PATH') }
 	: undefined;
 
-if (secure && !tls) {
-	throw new Error('SMTP_SECURE=true 时必须配置 SMTP_TLS_KEY_PATH 和 SMTP_TLS_CERT_PATH');
+if ((secure || (requireTls && !allowInsecureAuth)) && !tls) {
+	throw new Error('启用 SMTP TLS 时必须配置 SMTP_TLS_KEY_PATH 和 SMTP_TLS_CERT_PATH');
 }
 
 const config = {
@@ -101,8 +103,8 @@ const config = {
 	port: positiveInt(process.env.SMTP_PORT, secure ? 465 : 587),
 	secure,
 	tls,
-	requireTls: bool(process.env.SMTP_REQUIRE_TLS, true),
-	allowInsecureAuth: bool(process.env.SMTP_ALLOW_INSECURE_AUTH, false),
+	requireTls,
+	allowInsecureAuth,
 	apiUrl: String(process.env.SMMAILS_API_URL || '').replace(/\/$/, ''),
 	requestTimeout: positiveInt(process.env.SMMAILS_API_TIMEOUT_MS, 30000),
 	maxMessageSize: positiveInt(process.env.SMTP_MAX_MESSAGE_SIZE, 10 * 1024 * 1024),
