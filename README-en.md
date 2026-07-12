@@ -218,6 +218,8 @@ The Relay dynamically authenticates SMTP accounts through `SMTP_RELAY_TOKEN`, re
 
 The main mail system is deployed to Cloudflare Workers through GitHub Actions. Configure these GitHub Variables/Secrets:
 
+`D1_DATABASE_ID` and `D1_DATABASE_NAME` are optional. If you use an existing D1 database, set its UUID and exact Cloudflare database name; if omitted, the workflow finds or creates a D1 database named `NAME` and binds it as `db`.
+
 ```text
 SMTP_RELAY_HOST=<public hostname of the external SMTP Relay>
 SMTP_RELAY_PORT=<external SMTP Relay port>

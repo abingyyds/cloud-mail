@@ -225,6 +225,8 @@ Relay 会通过 `SMTP_RELAY_TOKEN` 动态向主系统验证 SMTP 账号密码，
 
 本项目主邮件系统通过 GitHub Actions 部署到 Cloudflare Workers。GitHub 仓库需要配置以下 Variables/Secrets：
 
+`D1_DATABASE_ID` 和 `D1_DATABASE_NAME` 都是可选的：如果已经有 D1 数据库，两个值应分别填写数据库 UUID 和 Cloudflare 中的精确数据库名称；如果不填写，工作流会自动查找或创建名称为 `NAME` 的 D1 数据库，并绑定为 `db`。
+
 ```text
 SMTP_RELAY_HOST=<外部 SMTP Relay 的公网域名>
 SMTP_RELAY_PORT=<外部 SMTP Relay 的端口>
