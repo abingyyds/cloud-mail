@@ -328,6 +328,7 @@ jobs:
           if [ "$RESPONSE_BODY" = "success" ]; then
             echo "✅ Setup completed."
           else
+            echo "::error title=Database initialization failed::HTTP $HTTP_CODE - $RESPONSE_BODY"
             echo "❌ Failed. HTTP: $HTTP_CODE, Response: $RESPONSE_BODY"
             exit 1
           fi
