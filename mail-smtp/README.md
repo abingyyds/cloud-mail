@@ -64,14 +64,18 @@ pnpm start
 
 生产环境建议使用 Docker、systemd 或 Kubernetes，并在防火墙只开放 587/465。
 
-## Railway 部署
+## 外部部署
 
-建议在 Railway 创建两个 Service：
+主邮件系统通过 GitHub Actions 部署到 Cloudflare Workers；`mail-smtp` 必须单独部署到支持长期 TCP 监听的 VPS、Docker 主机、Kubernetes 或其他 TCP 服务平台。Cloudflare Workers 和 GitHub Actions 本身都不能长期监听 SMTP 的 587/465 端口。
 
-1. 主邮件系统 Service：配置 `SMTP_RELAY_HOST`、`SMTP_RELAY_PORT=587`、`SMTP_RELAY_SECURE=starttls` 和 `SMTP_RELAY_TOKEN`；
-2. `mail-smtp` Service：Root Directory 设置为 `mail-smtp`，启动命令使用 `pnpm start`，配置 `SMMAILS_API_URL` 和相同的 `SMTP_RELAY_TOKEN`。
+在外部主机上运行 Relay：
 
-在 SMTP Relay Service 的 Networking 中开启 TCP Proxy。Railway 如果分配了独立的 TCP 代理地址和端口，产品内显示的 SMTP 服务器和端口应使用 Railway 提供的地址和端口，而不是固定写死 587。Railway 环境变量可以直接使用 `SMTP_TLS_KEY` 和 `SMTP_TLS_CERT` 保存 PEM 证书，也可以使用证书文件路径。
+1. 将 `SMMAILS_API_URL` 设置为 Cloudflare Worker 的 HTTPS 地址；
+2. 设置与 Worker 部署使用的相同 `SMTP_RELAY_TOKEN`；
+3. 对外开放 TCP 587（STARTTLS）或 465（隐式 TLS），并配置证书；
+4. 将 Relay 的公网 DNS 主机名和端口填入 GitHub Actions 的 `SMTP_RELAY_HOST`、`SMTP_RELAY_PORT`，重新部署 Worker。
+
+Relay 的 DNS 记录必须使用 DNS only，不能直接使用 Cloudflare 橙云代理普通 SMTP TCP 流量。GitHub Actions 只负责部署 Worker，不会替代这台外部 Relay 主机。
 
 ## 客户端配置
 

@@ -6,6 +6,7 @@ on:
     paths:
       - "mail-worker/**"
       - "mail-vue/**"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 jobs:
@@ -32,6 +33,10 @@ jobs:
       LINUXDO_CLIENT_SECRET: ${{ secrets.LINUXDO_CLIENT_SECRET || vars.LINUXDO_CLIENT_SECRET }}
       LINUXDO_CALLBACK_URL: ${{ secrets.LINUXDO_CALLBACK_URL || vars.LINUXDO_CALLBACK_URL }}
       LINUXDO_SWITCH: ${{ secrets.LINUXDO_SWITCH || vars.LINUXDO_SWITCH }}
+      SMTP_RELAY_HOST: ${{ secrets.SMTP_RELAY_HOST || vars.SMTP_RELAY_HOST }}
+      SMTP_RELAY_PORT: ${{ secrets.SMTP_RELAY_PORT || vars.SMTP_RELAY_PORT || 587 }}
+      SMTP_RELAY_SECURE: ${{ secrets.SMTP_RELAY_SECURE || vars.SMTP_RELAY_SECURE || 'starttls' }}
+      SMTP_RELAY_TOKEN: ${{ secrets.SMTP_RELAY_TOKEN || vars.SMTP_RELAY_TOKEN }}
 
 
     outputs:
@@ -136,6 +141,10 @@ jobs:
           sed -i "s|\${LINUXDO_CLIENT_SECRET}|${LINUXDO_CLIENT_SECRET}|g" "$CONFIG_FILE"
           sed -i "s|\${LINUXDO_CALLBACK_URL}|${LINUXDO_CALLBACK_URL}|g" "$CONFIG_FILE"
           sed -i "s|\${LINUXDO_SWITCH}|${LINUXDO_SWITCH}|g" "$CONFIG_FILE"
+          sed -i "s|\${SMTP_RELAY_HOST}|${SMTP_RELAY_HOST}|g" "$CONFIG_FILE"
+          sed -i "s|\${SMTP_RELAY_PORT}|${SMTP_RELAY_PORT}|g" "$CONFIG_FILE"
+          sed -i "s|\${SMTP_RELAY_SECURE}|${SMTP_RELAY_SECURE}|g" "$CONFIG_FILE"
+          sed -i "s|\${SMTP_RELAY_TOKEN}|${SMTP_RELAY_TOKEN}|g" "$CONFIG_FILE"
           
           echo "✅ Environment setup completed."
 

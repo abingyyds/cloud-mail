@@ -223,21 +223,19 @@ SMTP SSL：587 使用 STARTTLS，465 使用隐式 TLS
 
 Relay 会通过 `SMTP_RELAY_TOKEN` 动态向主系统验证 SMTP 账号密码，限制发件地址，并将邮件（包括附件）转发到当前项目；实际发信额度、发信身份和日志继续由 Open API 管理。详细配置见 [mail-smtp/README.md](mail-smtp/README.md)。
 
-Railway 部署时建议将主邮件系统和 `mail-smtp` 分成两个 Service，并在 SMTP Service 的 Networking 中开启 TCP Proxy。主系统和 Relay 必须配置相同的 `SMTP_RELAY_TOKEN`；客户最终使用 Railway TCP Proxy 提供的地址和端口。
-
-主邮件系统 Service 配置：
+本项目主邮件系统通过 GitHub Actions 部署到 Cloudflare Workers。GitHub 仓库需要配置以下 Variables/Secrets：
 
 ```text
-SMTP_RELAY_HOST=<Railway TCP Proxy 地址>
-SMTP_RELAY_PORT=<Railway TCP Proxy 端口>
+SMTP_RELAY_HOST=<外部 SMTP Relay 的公网域名>
+SMTP_RELAY_PORT=<外部 SMTP Relay 的端口>
 SMTP_RELAY_SECURE=starttls
 SMTP_RELAY_TOKEN=<随机长字符串>
 ```
 
-`mail-smtp` Service 配置：
+`mail-smtp` 不能部署到 Cloudflare Worker，因为 Worker 不能监听 TCP 587。它需要单独部署到支持 TCP 监听的 VPS、Docker 主机或其他 TCP 服务平台：
 
 ```text
-SMMAILS_API_URL=https://<主邮件系统域名>
+SMMAILS_API_URL=https://<Cloudflare Worker 域名>
 SMTP_RELAY_TOKEN=<与主系统相同>
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -246,9 +244,13 @@ SMTP_TLS_KEY=<TLS 私钥 PEM>
 SMTP_TLS_CERT=<TLS 证书 PEM>
 ```
 
+外部 Relay 的公网域名和端口填写到 GitHub Actions 的 `SMTP_RELAY_HOST`、`SMTP_RELAY_PORT` 后，网站会把它显示给客户。GitHub Actions 本身只负责部署 Worker，不负责长期运行 SMTP TCP 服务。
+
 部署主系统新版本后，用管理员 JWT Secret 访问一次 `/api/init/<jwt_secret>` 完成 `smtp_account` 表迁移，然后即可在开发者接入页面创建 SMTP 账号。
 
 用户也可以在左侧邮箱列表中创建邮箱，点击该邮箱的设置菜单 → **配置 SMTP**，系统会自动创建对应的发信身份和 API Key，并立即显示 SMTP 连接信息。
+
+自定义域名邮箱不需要先在左侧创建站内邮箱。用户在 **开发者接入 → 发信身份** 添加邮箱，按页面提示添加 DNS TXT 并完成验证后，直接点击该身份的 **配置 SMTP**。这类身份只用于发信；如果还要接收邮件，域名必须先加入部署变量 `DOMAIN`，并配置 Cloudflare Email Routing。
 
 ## 目录结构
 

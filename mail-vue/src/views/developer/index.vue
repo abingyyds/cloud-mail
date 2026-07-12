@@ -68,7 +68,7 @@
           <div class="section-head">
             <div>
               <h2>{{ $t('senderIdentity') }}</h2>
-              <p>{{ $t('dnsVerifyTip') }}</p>
+              <p>{{ $t('dnsVerifyTip') }} {{ $t('smtpCustomSenderTip') }}</p>
             </div>
             <el-button type="primary" @click="senderDialog = true">
               <Icon icon="fluent:mail-add-20-regular"/>
@@ -113,12 +113,15 @@
                 <span v-else>-</span>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('action')" width="240" fixed="right">
+            <el-table-column :label="$t('action')" width="320" fixed="right">
               <template #default="{row}">
                 <el-switch :model-value="row.status" :active-value="0" :inactive-value="1"
                            @change="setSenderStatus(row, $event)"/>
                 <el-button v-if="row.verifyStatus !== 0" link type="primary" @click="verifySender(row)">
                   {{ $t('verifyNow') }}
+                </el-button>
+                <el-button v-if="row.verifyStatus === 0 && row.status === 0" link type="primary" @click="provisionSenderSmtp(row)">
+                  {{ $t('smtpService') }}
                 </el-button>
                 <el-button link type="danger" @click="removeSender(row.senderIdentityId)">
                   {{ $t('delete') }}
@@ -384,7 +387,8 @@ import {
   smtpAccountDelete,
   smtpAccountList,
   smtpAccountStatus,
-  smtpAccountResetPassword
+  smtpAccountResetPassword,
+  smtpAccountProvisionSender
 } from '@/request/open-api.js';
 import {ElMessage, ElMessageBox} from 'element-plus';
 import {useI18n} from 'vue-i18n';
@@ -638,6 +642,15 @@ function resetSmtpPassword(row) {
           loading.value = false;
         });
   });
+}
+
+function provisionSenderSmtp(row) {
+  smtpAccountProvisionSender(row.senderIdentityId, `SMTP ${row.email}`)
+      .then(data => {
+        createdSmtp.value = data || {};
+        createdSmtpDialog.value = true;
+        loadData();
+      });
 }
 
 function resetApiKeyForm() {

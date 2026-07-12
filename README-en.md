@@ -216,21 +216,19 @@ SMTP security: STARTTLS on 587, implicit TLS on 465
 
 The Relay dynamically authenticates SMTP accounts through `SMTP_RELAY_TOKEN`, restricts sender addresses, and forwards messages (including attachments) to this project. Quotas, verified sender identities, and logs remain managed by the Open API. See [mail-smtp/README.md](mail-smtp/README.md) for deployment details.
 
-For Railway, deploy the main mail system and `mail-smtp` as separate services, enable a TCP Proxy on the SMTP service, and configure the same `SMTP_RELAY_TOKEN` on both services. Customers should use the address and port assigned by Railway's TCP Proxy.
-
-Main mail system variables:
+The main mail system is deployed to Cloudflare Workers through GitHub Actions. Configure these GitHub Variables/Secrets:
 
 ```text
-SMTP_RELAY_HOST=<Railway TCP Proxy host>
-SMTP_RELAY_PORT=<Railway TCP Proxy port>
+SMTP_RELAY_HOST=<public hostname of the external SMTP Relay>
+SMTP_RELAY_PORT=<external SMTP Relay port>
 SMTP_RELAY_SECURE=starttls
 SMTP_RELAY_TOKEN=<long random secret>
 ```
 
-`mail-smtp` variables:
+`mail-smtp` cannot run inside a Cloudflare Worker because Workers cannot listen on TCP 587. Deploy it separately to a VPS, Docker host, or another TCP-capable platform:
 
 ```text
-SMMAILS_API_URL=https://<main-mail-system-domain>
+SMMAILS_API_URL=https://<Cloudflare Worker domain>
 SMTP_RELAY_TOKEN=<same value as the main system>
 SMTP_PORT=587
 SMTP_SECURE=false
@@ -239,9 +237,13 @@ SMTP_TLS_KEY=<TLS private-key PEM>
 SMTP_TLS_CERT=<TLS certificate PEM>
 ```
 
+After the external Relay hostname and port are set as `SMTP_RELAY_HOST` and `SMTP_RELAY_PORT`, the website displays them to customers. GitHub Actions deploys the Worker only; it does not keep an SMTP TCP service running.
+
 After deploying the new main-system version, visit `/api/init/<jwt_secret>` once with the administrator JWT Secret to create the `smtp_account` table. SMTP accounts can then be created from the Developer page.
 
 Users can also create a mailbox from the left mailbox list, open that mailbox's settings menu, and choose **Configure SMTP**. The system automatically creates the sender identity and API Key, then displays the SMTP connection details.
+
+Custom-domain sender identities do not need a mailbox first. Go to **Developer → Sender Identity**, add the address, publish the DNS TXT record, and after verification click **Configure SMTP**. These identities are outbound-only; to receive mail on that domain, add it to the deployment `DOMAIN` setting and configure Cloudflare Email Routing.
 
 ## Project Structure
 

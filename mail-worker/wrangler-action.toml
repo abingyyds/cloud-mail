@@ -49,6 +49,10 @@ linuxdo_client_id = "${LINUXDO_CLIENT_ID}"
 linuxdo_client_secret = "${LINUXDO_CLIENT_SECRET}"
 linuxdo_callback_url = "${LINUXDO_CALLBACK_URL}"
 linuxdo_switch = "${LINUXDO_SWITCH}"
+smtp_relay_host = "${SMTP_RELAY_HOST}"
+smtp_relay_port = "${SMTP_RELAY_PORT}"
+smtp_relay_secure = "${SMTP_RELAY_SECURE}"
+smtp_relay_token = "${SMTP_RELAY_TOKEN}"
 
 [build]
 command = "pnpm --prefix ../mail-vue install && pnpm --prefix ../mail-vue run build"

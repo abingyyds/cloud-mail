@@ -490,6 +490,68 @@ const openApiService = {
 		}, userId);
 	},
 
+	async smtpAccountProvisionSender(c, params, userId) {
+		const senderIdentityId = Number(params?.senderIdentityId);
+		const senderRow = await orm(c).select().from(senderIdentity).where(and(
+			eq(senderIdentity.senderIdentityId, senderIdentityId),
+			eq(senderIdentity.userId, userId),
+			eq(senderIdentity.status, senderIdentityConst.status.OPEN),
+			eq(senderIdentity.verifyStatus, senderIdentityConst.verifyStatus.VERIFIED),
+			eq(senderIdentity.isDel, isDel.NORMAL)
+		)).get();
+
+		if (!senderRow) {
+			throw new BizError('发信身份不存在、未验证或不属于当前用户');
+		}
+
+		const apiKeyName = `SMTP ${senderRow.email}`.slice(0, 50);
+		let keyRow = await orm(c).select().from(apiKey).where(and(
+			eq(apiKey.userId, userId),
+			eq(apiKey.name, apiKeyName),
+			eq(apiKey.isDel, isDel.NORMAL)
+		)).get();
+
+		if (keyRow) {
+			if (keyRow.status !== apiKeyConst.status.OPEN) {
+				keyRow = await orm(c).update(apiKey).set({ status: apiKeyConst.status.OPEN }).where(eq(apiKey.apiKeyId, keyRow.apiKeyId)).returning().get();
+			}
+		} else {
+			const key = genApiKey();
+			const keyHash = await sha256(key);
+			const { day, month } = currentQuotaWindow();
+			keyRow = await orm(c).insert(apiKey).values({
+				userId,
+				name: apiKeyName,
+				keyHash,
+				keyPrefix: key.slice(0, 12),
+				status: apiKeyConst.status.OPEN,
+				quotaDate: day,
+				quotaMonth: month
+			}).returning().get();
+		}
+
+		const existing = await orm(c).select().from(smtpAccount).where(and(
+			eq(smtpAccount.userId, userId),
+			eq(smtpAccount.senderIdentityId, senderIdentityId),
+			eq(smtpAccount.isDel, isDel.NORMAL)
+		)).get();
+
+		if (existing) {
+			await orm(c).update(smtpAccount).set({
+				apiKeyId: keyRow.apiKeyId,
+				name: params?.name ? String(params.name).trim().slice(0, 80) : existing.name,
+				status: smtpAccountConst.status.OPEN
+			}).where(eq(smtpAccount.smtpAccountId, existing.smtpAccountId)).run();
+			return this.smtpAccountResetPassword(c, { smtpAccountId: existing.smtpAccountId }, userId);
+		}
+
+		return this.smtpAccountCreate(c, {
+			name: String(params?.name || `SMTP ${senderRow.email}`).trim().slice(0, 80),
+			apiKeyId: keyRow.apiKeyId,
+			senderIdentityId
+		}, userId);
+	},
+
 	async smtpAccountDelete(c, params, userId) {
 		const smtpAccountId = Number(params?.smtpAccountId);
 		await orm(c).update(smtpAccount).set({ isDel: isDel.DELETE })

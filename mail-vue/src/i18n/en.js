@@ -213,6 +213,7 @@ const en = {
     senderIdentity: 'Sender Identity',
     smtpAccount: 'SMTP Account',
     smtpService: 'Configure SMTP',
+    smtpCustomSenderTip: 'Custom-domain sender identities are outbound-only. After verification, configure SMTP directly without creating an inbox.',
     smtpAccountDesc: 'Customers can use an SMTP account to send mail. The password is shown only once.',
     createSmtpAccount: 'Create SMTP Account',
     smtpAccountName: 'Account name',
