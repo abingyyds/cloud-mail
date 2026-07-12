@@ -320,6 +320,7 @@ jobs:
             exit 1
           fi
 
+          echo "::notice title=Database initialization target::$WORKER_URL"
           echo "Initializing: $WORKER_URL"
           
           HTTP_CODE=$(curl -sL -w "%{http_code}" -o response.txt "$WORKER_URL/api/init/${JWT_SECRET}")
