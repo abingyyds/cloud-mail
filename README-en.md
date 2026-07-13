@@ -239,6 +239,8 @@ SMTP_TLS_KEY=<TLS private-key PEM>
 SMTP_TLS_CERT=<TLS certificate PEM>
 ```
 
+You can also deploy `mail-smtp` as a separate Railway service. The repository includes `mail-smtp/Dockerfile` and `mail-smtp/railway.toml`; see [mail-smtp/README.md](mail-smtp/README.md#railway-deployment) for the Root Directory, TLS variables, TCP Proxy, and public-port setup.
+
 After the external Relay hostname and port are set as `SMTP_RELAY_HOST` and `SMTP_RELAY_PORT`, the website displays them to customers. GitHub Actions deploys the Worker only; it does not keep an SMTP TCP service running.
 
 After deploying the new main-system version, visit `/api/init/<jwt_secret>` once with the administrator JWT Secret to create the `smtp_account` table. SMTP accounts can then be created from the Developer page.

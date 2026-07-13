@@ -246,6 +246,8 @@ SMTP_TLS_KEY=<TLS 私钥 PEM>
 SMTP_TLS_CERT=<TLS 证书 PEM>
 ```
 
+也可以将 `mail-smtp` 单独部署到 Railway。仓库已提供 `mail-smtp/Dockerfile` 和 `mail-smtp/railway.toml`，详细的 Root Directory、TLS 变量、TCP Proxy 和公网端口配置见 [mail-smtp/README.md](mail-smtp/README.md#railway-部署)。
+
 外部 Relay 的公网域名和端口填写到 GitHub Actions 的 `SMTP_RELAY_HOST`、`SMTP_RELAY_PORT` 后，网站会把它显示给客户。GitHub Actions 本身只负责部署 Worker，不负责长期运行 SMTP TCP 服务。
 
 部署主系统新版本后，用管理员 JWT Secret 访问一次 `/api/init/<jwt_secret>` 完成 `smtp_account` 表迁移，然后即可在开发者接入页面创建 SMTP 账号。

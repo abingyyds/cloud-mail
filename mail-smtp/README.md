@@ -77,6 +77,66 @@ pnpm start
 
 Relay 的 DNS 记录必须使用 DNS only，不能直接使用 Cloudflare 橙云代理普通 SMTP TCP 流量。GitHub Actions 只负责部署 Worker，不会替代这台外部 Relay 主机。
 
+## Railway 部署
+
+当前仓库已经包含 `Dockerfile` 和 `railway.toml`，可以把 `mail-smtp` 作为一个独立 Railway Service 部署。主系统仍然留在 Cloudflare Worker，Railway 只运行 SMTP Relay。
+
+### 1. 创建 Railway Service
+
+1. 在 Railway 创建项目，选择 **Deploy from GitHub Repo**，选择本仓库；
+2. 在 Service 的 **Settings → Source** 将 Root Directory 设置为 `/mail-smtp`；
+3. Railway 会使用 `mail-smtp/Dockerfile` 构建，不要把根目录设置成 `mail-worker`；
+4. 部署前在 **Variables** 添加下面的变量。
+
+```dotenv
+SMTP_LISTEN_HOST=0.0.0.0
+SMTP_PORT=587
+SMTP_SECURE=false
+SMTP_REQUIRE_TLS=true
+SMTP_ALLOW_INSECURE_AUTH=false
+SMTP_SERVER_NAME=smtp.smmails.com
+SMMAILS_API_URL=https://cloud-mail.abingyyds.workers.dev
+SMTP_RELAY_TOKEN=<与Cloudflare Worker相同的随机Token>
+SMTP_TLS_KEY=<完整TLS私钥PEM，换行写成\n>
+SMTP_TLS_CERT=<完整TLS证书PEM，换行写成\n>
+```
+
+Railway 使用变量传入证书时，不要设置 `SMTP_TLS_KEY_PATH` 或 `SMTP_TLS_CERT_PATH`；`SMTP_TLS_KEY` 和 `SMTP_TLS_CERT` 必须是一对，证书的域名应包含 `smtp.smmails.com`。不要把这些值提交到 Git。
+
+### 2. 开启 TCP Proxy
+
+部署成功后进入 Railway Service → **Networking → TCP Proxy**，为容器端口 `587` 创建 TCP Proxy。Railway 会显示一个公网主机和公网端口，例如：
+
+```text
+公网主机：containers-us-west-xxx.railway.app
+公网端口：32567
+```
+
+客户实际使用 Railway 提供的公网端口，不一定是 587。随后在 GitHub 仓库 **Settings → Secrets and variables → Actions** 设置：
+
+```text
+SMTP_RELAY_HOST=containers-us-west-xxx.railway.app
+SMTP_RELAY_PORT=32567
+SMTP_RELAY_SECURE=starttls
+SMTP_RELAY_TOKEN=<与Railway相同的Token>
+```
+
+`SMTP_RELAY_HOST` 不要填写 `cloud-mail.abingyyds.workers.dev`，也不要填写 `https://`。如果 Railway 支持为 TCP Proxy 绑定自定义域名，可以再将 `smtp.smmails.com` 按 Railway 提示绑定；否则先直接使用 Railway 提供的公网主机和端口。
+
+### 3. 重新部署 Worker
+
+修改 GitHub Variables/Secrets 后，手动运行 `.github/workflows/deploy-cloudflare.yml`。仅修改 GitHub Variables 不会自动触发当前的 push workflow。Worker 重新部署后，网站创建或重置 SMTP 账号时就会显示 Relay 的公网主机和端口。
+
+### 4. 验证连接
+
+从外部机器测试 TCP 端口：
+
+```bash
+nc -vz containers-us-west-xxx.railway.app 32567
+```
+
+再用支持 STARTTLS 的邮件客户端测试。客户配置使用 Railway 公网主机、公网端口、产品内生成的 SMTP 用户名和密码，安全方式选择 **STARTTLS**。
+
 ## 客户端配置
 
 ```text
