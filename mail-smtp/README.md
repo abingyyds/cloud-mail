@@ -121,7 +121,20 @@ SMTP_RELAY_SECURE=starttls
 SMTP_RELAY_TOKEN=<与Railway相同的Token>
 ```
 
-`SMTP_RELAY_HOST` 不要填写 `cloud-mail.abingyyds.workers.dev`，也不要填写 `https://`。如果 Railway 支持为 TCP Proxy 绑定自定义域名，可以再将 `smtp.smmails.com` 按 Railway 提示绑定；否则先直接使用 Railway 提供的公网主机和端口。
+`SMTP_RELAY_HOST` 不要填写 `cloud-mail.abingyyds.workers.dev`，也不要填写 `https://`。推荐在 DNS 中添加一条 **DNS only** 的 CNAME：
+
+```text
+smtp.smmails.com CNAME containers-us-west-xxx.railway.app
+```
+
+这样客户使用 `smtp.smmails.com`，证书也可以使用 `smtp.smmails.com`；端口仍然使用 Railway 分配的公网端口（例如 `32567`），因为 DNS 不会映射端口。GitHub Actions 中填写：
+
+```text
+SMTP_RELAY_HOST=smtp.smmails.com
+SMTP_RELAY_PORT=32567
+```
+
+如果 Railway TCP Proxy 主机发生变化，需要同步更新 CNAME。若不使用自定义 CNAME，客户必须使用 Railway 公网主机，并确保 TLS 证书域名与客户端连接主机匹配。
 
 ### 3. 重新部署 Worker
 
