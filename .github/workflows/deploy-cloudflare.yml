@@ -340,16 +340,35 @@ jobs:
           echo "::notice title=Database initialization target::$WORKER_URL"
           echo "Initializing: $WORKER_URL"
           
-          HTTP_CODE=$(curl -sL -w "%{http_code}" -o response.txt "$WORKER_URL/api/init/${JWT_SECRET}")
-          RESPONSE_BODY=$(cat response.txt)
+          INIT_READY=false
 
-          if [ "$RESPONSE_BODY" = "success" ]; then
-            echo "✅ Setup completed."
-          else
+          # The workers.dev hostname can briefly serve the previous deployment,
+          # including its previous JWT secret. Retry application-level mismatch
+          # responses until the newly deployed Worker has propagated.
+          for ATTEMPT in $(seq 1 12); do
+            set +e
+            HTTP_CODE=$(curl --max-time 30 -sL -w "%{http_code}" \
+              -o response.txt "$WORKER_URL/api/init/${JWT_SECRET}")
+            CURL_EXIT_CODE=$?
+            set -e
+            RESPONSE_BODY=$(cat response.txt 2>/dev/null || true)
+
+            if [ $CURL_EXIT_CODE -eq 0 ] && [ "$RESPONSE_BODY" = "success" ]; then
+              INIT_READY=true
+              break
+            fi
+
+            echo "⚠️ Database initialization attempt $ATTEMPT/12 failed. HTTP: ${HTTP_CODE:-none}, Response: $RESPONSE_BODY"
+            sleep 5
+          done
+
+          if [ "$INIT_READY" != "true" ]; then
             echo "::error title=Database initialization failed::HTTP $HTTP_CODE - $RESPONSE_BODY"
             echo "❌ Failed. HTTP: $HTTP_CODE, Response: $RESPONSE_BODY"
             exit 1
           fi
+
+          echo "✅ Setup completed."
 
           echo "🔎 Verifying the public bootstrap API..."
           WEBSITE_CONFIG_URL="$WORKER_URL/api/setting/websiteConfig"
