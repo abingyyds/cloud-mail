@@ -21,3 +21,14 @@ describe('settings bootstrap', () => {
 		expect(await env.kv.get(KvConst.SETTING)).not.toBeNull();
 	});
 });
+
+describe('static asset fallback', () => {
+	it('returns a non-cacheable 404 instead of index.html for a missing module', async () => {
+		const response = await SELF.fetch('http://example.com/assets/missing-versioned-module.js');
+
+		expect(response.status).toBe(404);
+		expect(response.headers.get('Content-Type')).toContain('text/plain');
+		expect(response.headers.get('Cache-Control')).toBe('no-store');
+		expect(await response.text()).toBe('Not Found');
+	});
+});

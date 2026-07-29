@@ -99,6 +99,10 @@ const router = createRouter({
     routes
 })
 
+router.onError((error) => {
+    window.__smmailsRecoverAssetLoad?.(error)
+})
+
 NProgress.configure({
     showSpinner: false,   // 不显示旋转图标
     trickleSpeed: 50,    // 自动递增速度

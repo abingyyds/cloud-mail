@@ -284,7 +284,7 @@ jobs:
           echo "✅ Wrangler dry-run confirmed the db D1 binding."
 
           set +e
-          pnpm wrangler deploy -c wrangler-action.toml --keep-vars 2>&1 \
+          pnpm wrangler deploy -c wrangler-action.toml --keep-vars --old-asset-ttl 86400 2>&1 \
             | tee deploy.log \
             | grep -v "https://.*\.workers\.dev" \
             | sed -E 's/env\.domain .*/env.domain (***)/'
@@ -384,6 +384,23 @@ jobs:
           fi
 
           echo "✅ Worker can read D1 and serve the public bootstrap API."
+
+          echo "🔎 Verifying missing static assets do not fall back to HTML..."
+          MISSING_ASSET_URL="$WORKER_URL/assets/__deployment_probe_missing__.js"
+          MISSING_ASSET_HTTP_CODE=$(curl --max-time 30 -sS -D asset-response.headers \
+            -o asset-response.txt -w "%{http_code}" "$MISSING_ASSET_URL")
+
+          if [ "$MISSING_ASSET_HTTP_CODE" != "404" ] \
+            || ! grep -iq '^content-type: text/plain' asset-response.headers \
+            || ! grep -iq '^cache-control: no-store' asset-response.headers; then
+            MISSING_ASSET_RESPONSE_BODY=$(cat asset-response.txt 2>/dev/null || true)
+            echo "::error title=Static asset fallback check failed::HTTP $MISSING_ASSET_HTTP_CODE - $MISSING_ASSET_RESPONSE_BODY"
+            echo "❌ Missing static asset response is unsafe."
+            cat asset-response.headers
+            exit 1
+          fi
+
+          echo "✅ Missing static assets return a non-cacheable 404."
 
       - name: 🗑️ 删除运行记录 / Delete workflow runs
         uses: GitRML/delete-workflow-runs@main

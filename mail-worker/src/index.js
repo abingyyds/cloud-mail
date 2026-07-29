@@ -21,7 +21,23 @@ export default {
 			 return await kvObjService.toObjResp( { env }, url.pathname.substring(1));
 		 }
 
-		return env.assets.fetch(req);
+		const assetResponse = await env.assets.fetch(req);
+
+		// Static Assets uses the SPA fallback for unknown paths. That behavior is
+		// correct for client-side routes, but a missing hashed JS/CSS file must not
+		// be returned as index.html (and then cached as an immutable asset).
+		if (isMissingStaticAsset(url, assetResponse)) {
+			return new Response(req.method === 'HEAD' ? null : 'Not Found', {
+				status: 404,
+				headers: {
+					'Cache-Control': 'no-store',
+					'Content-Type': 'text/plain; charset=UTF-8',
+					'X-Content-Type-Options': 'nosniff'
+				}
+			});
+		}
+
+		return assetResponse;
 	},
 	email: email,
 	async scheduled(c, env, ctx) {
@@ -37,3 +53,9 @@ export default {
 		await analysisService.refreshEchartsCache({ env })
 	},
 };
+
+function isMissingStaticAsset(url, response) {
+	const hasFileExtension = /\/[^/]+\.[^/]+$/.test(url.pathname);
+	const isHtmlFallback = response.headers.get('Content-Type')?.includes('text/html');
+	return hasFileExtension && !url.pathname.endsWith('.html') && isHtmlFallback;
+}

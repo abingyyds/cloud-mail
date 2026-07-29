@@ -6,7 +6,7 @@
 		"dev": "wrangler dev --config wrangler-dev.toml",
 		"test": "vitest run",
 		"deploy:test": "wrangler deploy --config wrangler-test.toml",
-		"deploy": "wrangler deploy",
+		"deploy": "wrangler deploy --old-asset-ttl 86400",
 		"start": "wrangler dev"
 	},
 	"devDependencies": {

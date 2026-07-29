@@ -16,3 +16,4 @@ app.use(router).use(i18n).directive('perm',perm)
 app.config.devtools = true;
 
 app.mount('#app');
+window.__smmailsClearAssetReload?.();
