@@ -159,7 +159,9 @@ jobs:
           echo "🔍 Checking if the database exists..."
           
           set +e
-            KV_LIST=$(pnpm wrangler kv namespace list 2>&1)
+            # Wrangler warnings are written to stderr. Keep stdout clean because
+            # it is JSON consumed by jq below.
+            KV_LIST=$(pnpm wrangler kv namespace list)
             STATUS=$?
           set -e
           
@@ -193,7 +195,8 @@ jobs:
           if [ -n "$D1_DATABASE_ID" ]; then
             echo "🔍 Validating D1_DATABASE_ID against Cloudflare..."
             set +e
-              DB_LIST=$(pnpm wrangler d1 list --json 2>&1)
+              # Do not merge Wrangler warnings into the JSON payload.
+              DB_LIST=$(pnpm wrangler d1 list --json)
               STATUS=$?
             set -e
 
@@ -219,7 +222,8 @@ jobs:
             echo "🔍 Checking if the database exists..."
 
             set +e
-              DB_LIST=$(pnpm wrangler d1 list --json 2>&1)
+              # Do not merge Wrangler warnings into the JSON payload.
+              DB_LIST=$(pnpm wrangler d1 list --json)
               STATUS=$?
             set -e
 
