@@ -27,3 +27,4 @@ mail-vue/dist
 .venv
 mail-worker/.dev.vars*
 mail-worker/.env*
+.local-secrets/
