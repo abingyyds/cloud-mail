@@ -145,7 +145,7 @@
             </el-button>
           </div>
 
-          <el-alert v-if="!overview.smtp?.relayConfigured" :title="$t('smtpRelayNotConfigured')" type="warning" :closable="false"/>
+          <el-alert v-if="overview.smtp && !overview.smtp.configured" :title="$t('smtpRelayNotConfigured')" type="warning" :closable="false"/>
 
           <el-table :data="smtpAccounts" v-loading="loading">
             <el-table-column prop="name" :label="$t('smtpAccountName')" min-width="150"/>
