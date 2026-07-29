@@ -387,12 +387,28 @@ jobs:
 
           echo "🔎 Verifying missing static assets do not fall back to HTML..."
           MISSING_ASSET_URL="$WORKER_URL/assets/__deployment_probe_missing__.js"
-          MISSING_ASSET_HTTP_CODE=$(curl --max-time 30 -sS -D asset-response.headers \
-            -o asset-response.txt -w "%{http_code}" "$MISSING_ASSET_URL")
+          MISSING_ASSET_READY=false
 
-          if [ "$MISSING_ASSET_HTTP_CODE" != "404" ] \
-            || ! grep -iq '^content-type: text/plain' asset-response.headers \
-            || ! grep -iq '^cache-control: no-store' asset-response.headers; then
+          for ATTEMPT in $(seq 1 12); do
+            set +e
+            MISSING_ASSET_HTTP_CODE=$(curl --max-time 30 -sS -D asset-response.headers \
+              -o asset-response.txt -w "%{http_code}" "$MISSING_ASSET_URL")
+            CURL_EXIT_CODE=$?
+            set -e
+
+            if [ $CURL_EXIT_CODE -eq 0 ] && [ "$MISSING_ASSET_HTTP_CODE" = "404" ] \
+              && grep -iq '^content-type: text/plain' asset-response.headers \
+              && grep -iq '^cache-control: no-store' asset-response.headers; then
+              MISSING_ASSET_READY=true
+              break
+            fi
+
+            MISSING_ASSET_RESPONSE_BODY=$(cat asset-response.txt 2>/dev/null || true)
+            echo "⚠️ Static asset check attempt $ATTEMPT/12 failed. HTTP: ${MISSING_ASSET_HTTP_CODE:-none}, Response: $MISSING_ASSET_RESPONSE_BODY"
+            sleep 5
+          done
+
+          if [ "$MISSING_ASSET_READY" != "true" ]; then
             MISSING_ASSET_RESPONSE_BODY=$(cat asset-response.txt 2>/dev/null || true)
             echo "::error title=Static asset fallback check failed::HTTP $MISSING_ASSET_HTTP_CODE - $MISSING_ASSET_RESPONSE_BODY"
             echo "❌ Missing static asset response is unsafe."
