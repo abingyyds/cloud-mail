@@ -3,6 +3,12 @@ main = "src/index.js"
 compatibility_date = "2025-06-04"
 keep_vars = true
 
+# Cloudflare Git builds may deploy this generic config after GitHub Actions.
+# Keep production resource bindings that are intentionally configured outside
+# this file instead of silently deleting them from the Worker.
+[unsafe.metadata]
+keep_bindings = ["d1", "kv_namespace", "r2_bucket", "send_email"]
+
 [observability]
 enabled = true
 

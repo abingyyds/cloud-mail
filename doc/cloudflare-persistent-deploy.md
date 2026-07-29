@@ -44,6 +44,8 @@
 - 如果你在 Cloudflare 控制台临时增加变量，当前 workflow 已使用 `keep_vars = true` 和 `--keep-vars`，会保留控制台变量。
 - 但是 D1/KV/R2 绑定、自定义域名这类资源配置仍建议写入 GitHub Secrets / Variables，否则下一次部署可能和你手动配置的不一致。
 - 如果你同时开启了 Cloudflare 控制台的 Git 集成部署和 GitHub Actions 部署，建议只保留一种。推荐保留 GitHub Actions，避免两个部署源互相覆盖。
+- 仓库默认的 `mail-worker/wrangler.toml` 会保留现有 D1、KV、R2 和 Email Sending 绑定，避免 Cloudflare Git 构建使用通用配置时静默删除生产绑定；资源的创建和切换仍应由 GitHub Actions 中的固定 ID 管理。
+- 网站配置缓存缺失或 KV 短暂不可用时，Worker 会自动从 D1 读取配置并尝试重建缓存，不再要求通过重新部署来恢复首页。
 
 ## 推送后仍然丢配置时检查
 
@@ -51,3 +53,4 @@
 2. 确认 `CUSTOM_DOMAIN` 已配置，否则 workflow 会移除 action 配置中的 routes。
 3. 确认 `D1_DATABASE_ID`、`KV_NAMESPACE_ID`、`R2_BUCKET_NAME` 指向你正在使用的资源。
 4. 确认 Cloudflare 控制台没有另一个 Pages/Workers Git 部署也在同一分支自动发布。
+5. 查看 GitHub Actions 的部署日志，确认 `Worker can read D1 and serve the public bootstrap API` 检查通过。

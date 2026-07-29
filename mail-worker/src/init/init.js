@@ -1,6 +1,7 @@
 import settingService from '../service/setting-service';
 import emailUtils from '../utils/email-utils';
 import {emailConst} from "../const/entity-const";
+import BizError from '../error/biz-error';
 
 const dbInit = {
 	async init(c) {
@@ -9,6 +10,14 @@ const dbInit = {
 
 		if (secret !== c.env.jwt_secret) {
 			return c.text('❌ JWT secret mismatch');
+		}
+
+		if (!c.env.db) {
+			throw new BizError('D1数据库未绑定 D1 database not bound', 502);
+		}
+
+		if (!c.env.kv) {
+			throw new BizError('KV数据库未绑定 KV database not bound', 502);
 		}
 
 		await this.intDB(c);

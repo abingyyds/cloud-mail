@@ -1,20 +1,23 @@
-import { env, createExecutionContext, waitOnExecutionContext, SELF } from 'cloudflare:test';
-import { describe, it, expect } from 'vitest';
-import worker from '../src';
+import { env, SELF } from 'cloudflare:test';
+import { beforeEach, describe, expect, it } from 'vitest';
+import KvConst from '../src/const/kv-const';
 
-describe('Hello World worker', () => {
-	it('responds with Hello World! (unit style)', async () => {
-		const request = new Request('http://example.com');
-		// Create an empty context to pass to `worker.fetch()`.
-		const ctx = createExecutionContext();
-		const response = await worker.fetch(request, env, ctx);
-		// Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
-		await waitOnExecutionContext(ctx);
-		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
+describe('settings bootstrap', () => {
+	beforeEach(async () => {
+		const response = await SELF.fetch(`http://example.com/api/init/${env.jwt_secret}`);
+		expect(await response.text()).toBe('success');
 	});
 
-	it('responds with Hello World! (integration style)', async () => {
-		const response = await SELF.fetch('http://example.com');
-		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
+	it('rebuilds a missing KV settings cache from D1', async () => {
+		await env.kv.delete(KvConst.SETTING);
+		expect(await env.kv.get(KvConst.SETTING)).toBeNull();
+
+		const response = await SELF.fetch('http://example.com/api/setting/websiteConfig');
+		const body = await response.json();
+
+		expect(response.status).toBe(200);
+		expect(body.code).toBe(200);
+		expect(body.data.title).toBe('Cloud Mail');
+		expect(await env.kv.get(KvConst.SETTING)).not.toBeNull();
 	});
 });

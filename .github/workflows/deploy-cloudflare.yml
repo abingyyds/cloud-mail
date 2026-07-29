@@ -347,6 +347,20 @@ jobs:
             exit 1
           fi
 
+          echo "🔎 Verifying the public bootstrap API..."
+          WEBSITE_CONFIG_URL="$WORKER_URL/api/setting/websiteConfig"
+          WEBSITE_HTTP_CODE=$(curl --retry 5 --retry-all-errors --retry-delay 3 --max-time 30 \
+            -sL -w "%{http_code}" -o website-response.json "$WEBSITE_CONFIG_URL")
+
+          if [ "$WEBSITE_HTTP_CODE" != "200" ] || ! jq -e '.code == 200 and (.data | type == "object")' website-response.json >/dev/null; then
+            WEBSITE_RESPONSE_BODY=$(cat website-response.json)
+            echo "::error title=Worker smoke test failed::HTTP $WEBSITE_HTTP_CODE - $WEBSITE_RESPONSE_BODY"
+            echo "❌ Public bootstrap API failed. HTTP: $WEBSITE_HTTP_CODE, Response: $WEBSITE_RESPONSE_BODY"
+            exit 1
+          fi
+
+          echo "✅ Worker can read D1 and serve the public bootstrap API."
+
       - name: 🗑️ 删除运行记录 / Delete workflow runs
         uses: GitRML/delete-workflow-runs@main
         continue-on-error: true

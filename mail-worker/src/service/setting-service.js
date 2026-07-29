@@ -13,11 +13,49 @@ import verifyUtils from '../utils/verify-utils';
 
 const settingService = {
 
-	async refresh(c) {
+	async loadFromDatabase(c) {
 		const settingRow = await orm(c).select().from(setting).get();
-		settingRow.resendTokens = JSON.parse(settingRow.resendTokens);
+
+		if (!settingRow) {
+			throw new BizError('数据库未初始化 Database not initialized.');
+		}
+
+		try {
+			settingRow.resendTokens = JSON.parse(settingRow.resendTokens);
+		} catch (error) {
+			console.error('Failed to parse resend tokens from D1', error);
+			throw new BizError('数据库配置损坏 Database configuration is invalid.');
+		}
+
+		return settingRow;
+	},
+
+	async cache(c, settingRow, { required = false } = {}) {
+		if (!c.env.kv) {
+			if (required) {
+				throw new BizError('KV数据库未绑定 KV database not bound', 502);
+			}
+
+			console.warn('KV binding is unavailable; serving settings directly from D1.');
+			return;
+		}
+
+		try {
+			await c.env.kv.put(KvConst.SETTING, JSON.stringify(settingRow));
+		} catch (error) {
+			if (required) {
+				throw new BizError('KV数据库暂时不可用 KV database temporarily unavailable', 502);
+			}
+
+			console.warn(`Failed to refresh the settings cache: ${error.message}`);
+		}
+	},
+
+	async refresh(c) {
+		const settingRow = await this.loadFromDatabase(c);
 		c.set('setting', settingRow);
-		await c.env.kv.put(KvConst.SETTING, JSON.stringify(settingRow));
+		await this.cache(c, settingRow, { required: true });
+		return settingRow;
 	},
 
 	async query(c) {
@@ -26,10 +64,19 @@ const settingService = {
 			return c.get('setting')
 		}
 
-		const setting = await c.env.kv.get(KvConst.SETTING, { type: 'json' });
+		let setting = null;
+
+		if (c.env.kv) {
+			try {
+				setting = await c.env.kv.get(KvConst.SETTING, { type: 'json' });
+			} catch (error) {
+				console.warn(`Failed to read the settings cache: ${error.message}`);
+			}
+		}
 
 		if (!setting) {
-			throw new BizError('数据库未初始化 Database not initialized.');
+			setting = await this.loadFromDatabase(c);
+			await this.cache(c, setting);
 		}
 
 		let domainList = c.env.domain;
