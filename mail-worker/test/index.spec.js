@@ -38,6 +38,12 @@ describe('settings bootstrap', () => {
 		expect(columns).toContain('resend_last_check_time');
 		expect(columns).toContain('resend_last_error');
 	});
+
+	it('keeps the customer Resend migration idempotent', async () => {
+		const response = await SELF.fetch(`http://example.com/api/init/${env.jwt_secret}`);
+		expect(response.status).toBe(200);
+		expect(await response.text()).toBe('success');
+	});
 });
 
 describe('static asset fallback', () => {

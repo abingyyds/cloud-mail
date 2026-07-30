@@ -55,13 +55,29 @@ const dbInit = {
 			`ALTER TABLE sender_identity ADD COLUMN resend_last_error TEXT NOT NULL DEFAULT '';`
 		];
 
-		await Promise.all(SQL_LIST.map(async (sql) => {
+		// D1 schema writes must be serialized. Concurrent ALTER TABLE statements can
+		// fail while another schema transaction is active, and the old code then
+		// returned a false-positive "success" because every error was ignored.
+		for (const sql of SQL_LIST) {
 			try {
 				await c.env.db.prepare(sql).run();
 			} catch (e) {
 				console.warn(`跳过客户 Resend 字段：${e.message}`);
 			}
-		}));
+		}
+
+		const requiredColumns = [
+			'resend_token',
+			'resend_status',
+			'resend_last_check_time',
+			'resend_last_error'
+		];
+		const result = await c.env.db.prepare("PRAGMA table_info('sender_identity')").all();
+		const columns = new Set((result.results || []).map(row => row.name));
+		const missingColumns = requiredColumns.filter(column => !columns.has(column));
+		if (missingColumns.length > 0) {
+			throw new BizError(`客户 Resend 数据库迁移失败，缺少字段：${missingColumns.join(', ')}`, 500);
+		}
 	},
 
 	async v3_4DB(c) {
