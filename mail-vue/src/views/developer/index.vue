@@ -91,6 +91,13 @@
                 </el-tag>
               </template>
             </el-table-column>
+            <el-table-column :label="$t('externalDelivery')" min-width="170">
+              <template #default="{row}">
+                <el-tag :type="resendStatusType(row)">
+                  {{ resendStatusLabel(row) }}
+                </el-tag>
+              </template>
+            </el-table-column>
             <el-table-column :label="$t('dnsRecord')" min-width="300">
               <template #default="{row}">
                 <div v-if="row.type === 'custom'" class="dns-record">
@@ -113,14 +120,17 @@
                 <span v-else>-</span>
               </template>
             </el-table-column>
-            <el-table-column :label="$t('action')" width="320" fixed="right">
+            <el-table-column :label="$t('action')" width="420" fixed="right">
               <template #default="{row}">
                 <el-switch :model-value="row.status" :active-value="0" :inactive-value="1"
                            @change="setSenderStatus(row, $event)"/>
                 <el-button v-if="row.verifyStatus !== 0" link type="primary" @click="verifySender(row)">
                   {{ $t('verifyNow') }}
                 </el-button>
-                <el-button v-if="row.verifyStatus === 0 && row.status === 0" link type="primary" @click="provisionSenderSmtp(row)">
+                <el-button v-if="row.type === 'custom'" link type="primary" @click="openResendOnboarding(row)">
+                  {{ $t('resendOnboarding') }}
+                </el-button>
+                <el-button v-if="canConfigureSmtp(row)" link type="primary" @click="provisionSenderSmtp(row)">
                   {{ $t('smtpService') }}
                 </el-button>
                 <el-button link type="danger" @click="removeSender(row.senderIdentityId)">
@@ -327,6 +337,110 @@
       </el-button>
     </el-dialog>
 
+    <el-dialog v-model="resendDialog" :title="$t('resendOnboardingTitle')" width="720px" @closed="resetResendForm">
+      <template v-if="resendSender">
+        <el-steps :active="resendActiveStep" finish-status="success" align-center class="resend-steps">
+          <el-step :title="$t('resendStepOwnership')"/>
+          <el-step :title="$t('resendStepAccount')"/>
+          <el-step :title="$t('resendStepBind')"/>
+          <el-step :title="$t('resendStepTest')"/>
+        </el-steps>
+
+        <el-alert v-if="['ban', 'internal'].includes(overview.quota?.sendType)"
+                  :title="$t('resendQuotaBlocked')" type="warning" :closable="false" show-icon class="resend-quota-alert"/>
+
+        <div class="resend-guide">
+          <article class="resend-guide-card">
+            <div class="resend-guide-title">
+              <strong>1. {{ $t('resendStepOwnership') }}</strong>
+              <el-tag :type="resendSender.verifyStatus === 0 ? 'success' : 'warning'">
+                {{ resendSender.verifyStatus === 0 ? $t('verified') : $t('pendingVerify') }}
+              </el-tag>
+            </div>
+            <p>{{ $t('resendOwnershipDesc') }}</p>
+            <div class="resend-dns-grid">
+              <span>{{ $t('dnsRecord') }}</span>
+              <code>{{ resendSender.dnsHost }}</code>
+              <el-button link type="primary" @click="copy(resendSender.dnsHost)">{{ $t('copy') }}</el-button>
+              <span>TXT Value</span>
+              <code>{{ resendSender.dnsValue }}</code>
+              <el-button link type="primary" @click="copy(resendSender.dnsValue)">{{ $t('copy') }}</el-button>
+            </div>
+            <el-button v-if="resendSender.verifyStatus !== 0" type="primary" plain @click="verifySender(resendSender)">
+              {{ $t('verifyNow') }}
+            </el-button>
+          </article>
+
+          <article class="resend-guide-card">
+            <div class="resend-guide-title">
+              <strong>2. {{ $t('resendStepAccount') }}</strong>
+            </div>
+            <ol>
+              <li>{{ $t('resendGuideAddDomain', {domain: resendSender.domain}) }}</li>
+              <li>{{ $t('resendGuideDns') }}</li>
+              <li>{{ $t('resendGuideCreateKey') }}</li>
+              <li>{{ $t('resendGuideKeyScope', {domain: resendSender.domain}) }}</li>
+            </ol>
+            <div class="resend-links">
+              <el-link href="https://resend.com/domains" target="_blank" type="primary">Resend Domains ↗</el-link>
+              <el-link href="https://resend.com/api-keys" target="_blank" type="primary">Resend API Keys ↗</el-link>
+              <el-link href="https://resend.com/docs/dashboard/domains/introduction" target="_blank" type="primary">{{ $t('officialDocs') }} ↗</el-link>
+            </div>
+          </article>
+
+          <article class="resend-guide-card">
+            <div class="resend-guide-title">
+              <strong>3. {{ $t('resendStepBind') }}</strong>
+              <el-tag v-if="resendSender.resendConfigured" type="success">
+                {{ resendSender.resendTokenMasked }}
+              </el-tag>
+            </div>
+            <p>{{ $t('resendBindDesc') }}</p>
+            <div class="resend-inline-form">
+              <el-input v-model="resendForm.token" type="password" show-password
+                        :placeholder="$t('resendApiKeyPlaceholder')"/>
+              <el-button type="primary" :loading="resendLoading"
+                         :disabled="resendSender.verifyStatus !== 0 || !resendForm.token"
+                         @click="bindResendToken">
+                {{ resendSender.resendConfigured ? $t('replaceResendKey') : $t('bindResendKey') }}
+              </el-button>
+            </div>
+            <el-alert :title="$t('resendSecurityTip')" type="info" :closable="false" show-icon/>
+          </article>
+
+          <article class="resend-guide-card">
+            <div class="resend-guide-title">
+              <strong>4. {{ $t('resendStepTest') }}</strong>
+              <el-tag :type="resendStatusType(resendSender)">{{ resendStatusLabel(resendSender) }}</el-tag>
+            </div>
+            <p>{{ $t('resendTestDesc') }}</p>
+            <div class="resend-inline-form">
+              <el-input v-model="resendForm.recipient" :placeholder="$t('resendTestRecipient')"/>
+              <el-button type="primary" :loading="resendLoading"
+                         :disabled="!resendSender.resendConfigured || !resendForm.recipient || ['ban', 'internal'].includes(overview.quota?.sendType)"
+                         @click="testResendDelivery">
+                {{ $t('sendResendTest') }}
+              </el-button>
+            </div>
+            <el-alert v-if="resendSender.resendLastError" :title="resendSender.resendLastError"
+                      type="error" :closable="false" show-icon/>
+            <p v-if="resendSender.resendLastCheckTime" class="resend-check-time">
+              {{ $t('lastCheckTime') }}: {{ resendSender.resendLastCheckTime }}
+            </p>
+          </article>
+        </div>
+
+        <div class="resend-dialog-actions">
+          <el-button v-if="resendSender.resendConfigured" type="danger" plain :loading="resendLoading" @click="removeResendToken">
+            {{ $t('removeResendKey') }}
+          </el-button>
+          <el-button v-if="canConfigureSmtp(resendSender)" type="primary" @click="provisionSenderSmtp(resendSender)">
+            {{ $t('resendReadyConfigureSmtp') }}
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="smtpDialog" :title="$t('createSmtpAccount')" width="460px" @closed="resetSmtpForm">
       <el-form label-position="top">
         <el-form-item :label="$t('smtpAccountName')">
@@ -381,6 +495,9 @@ import {
   senderCreate,
   senderDelete,
   senderList,
+  senderResendBind,
+  senderResendDelete,
+  senderResendTest,
   senderStatus,
   senderVerify,
   smtpAccountCreate,
@@ -410,10 +527,13 @@ const apiKeyDialog = ref(false);
 const createdKeyDialog = ref(false);
 const quotaDialog = ref(false);
 const senderDialog = ref(false);
+const resendDialog = ref(false);
 const smtpDialog = ref(false);
 const createdSmtpDialog = ref(false);
 const createdKey = ref('');
 const createdSmtp = ref({});
+const resendLoading = ref(false);
+const resendSender = ref(null);
 const apiKeyForm = reactive({
   name: '',
   dayLimit: 0,
@@ -429,6 +549,10 @@ const quotaForm = reactive({
 const senderForm = reactive({
   email: '',
   name: ''
+});
+const resendForm = reactive({
+  token: '',
+  recipient: ''
 });
 const smtpForm = reactive({
   name: '',
@@ -454,7 +578,15 @@ const selectedSenderEmail = computed(() => {
   return senders.value.find(item => item.verifyStatus === 0 && item.status === 0)?.email || 'no-reply@example.com';
 });
 
-const verifiedSenders = computed(() => senders.value.filter(item => item.verifyStatus === 0 && item.status === 0));
+const verifiedSenders = computed(() => senders.value.filter(item => canConfigureSmtp(item)));
+
+const resendActiveStep = computed(() => {
+  const row = resendSender.value;
+  if (!row || row.verifyStatus !== 0) return 0;
+  if (!row.resendConfigured) return 1;
+  if (!row.resendReady) return 2;
+  return 4;
+});
 
 const codeExample = computed(() => {
   return `curl -X POST ${location.origin}/api/open/sendCode \\
@@ -596,7 +728,107 @@ function setSenderStatus(row, status) {
 }
 
 function verifySender(row) {
-  senderVerify(row.senderIdentityId).then(loadData);
+  senderVerify(row.senderIdentityId).then(() => {
+    row.verifyStatus = 0;
+    if (resendSender.value?.senderIdentityId === row.senderIdentityId) {
+      resendSender.value = {...resendSender.value, verifyStatus: 0};
+    }
+    loadData();
+  });
+}
+
+function canConfigureSmtp(row) {
+  if (!row || row.verifyStatus !== 0 || row.status !== 0) return false;
+  if (row.type === 'custom' && ['ban', 'internal'].includes(overview.value.quota?.sendType)) return false;
+  return row.type === 'platform' || row.resendReady;
+}
+
+function resendStatusType(row) {
+  if (row?.type === 'platform' || row?.resendReady) return 'success';
+  if (row?.resendStatus === 'failed') return 'danger';
+  if (row?.resendConfigured) return 'warning';
+  return 'info';
+}
+
+function resendStatusLabel(row) {
+  if (row?.type === 'platform') return t('platformManagedDelivery');
+  if (row?.resendReady) return t('resendReady');
+  if (row?.resendStatus === 'failed') return t('resendTestFailed');
+  if (row?.resendConfigured) return t('resendPendingTest');
+  return t('resendNotConfigured');
+}
+
+function openResendOnboarding(row) {
+  resendSender.value = {...row};
+  resendForm.token = '';
+  resendForm.recipient = '';
+  resendDialog.value = true;
+}
+
+function updateResendSender(row) {
+  if (!row) return;
+  resendSender.value = {...row};
+  const index = senders.value.findIndex(item => item.senderIdentityId === row.senderIdentityId);
+  if (index >= 0) {
+    senders.value[index] = {...row};
+  }
+}
+
+function bindResendToken() {
+  if (!resendSender.value || !resendForm.token) return;
+  resendLoading.value = true;
+  senderResendBind(resendSender.value.senderIdentityId, resendForm.token)
+      .then(row => {
+        updateResendSender(row);
+        resendForm.token = '';
+        ElMessage({message: t('resendKeySaved'), type: 'success'});
+      })
+      .finally(() => {
+        resendLoading.value = false;
+      });
+}
+
+function testResendDelivery() {
+  if (!resendSender.value || !resendForm.recipient) return;
+  resendLoading.value = true;
+  senderResendTest(resendSender.value.senderIdentityId, resendForm.recipient)
+      .then(data => {
+        updateResendSender(data.sender);
+        ElMessage({message: t('resendTestSent', {email: data.recipient}), type: 'success'});
+      })
+      .finally(() => {
+        resendLoading.value = false;
+      });
+}
+
+function removeResendToken() {
+  if (!resendSender.value) return;
+  ElMessageBox.confirm(t('removeResendConfirm')).then(() => {
+    resendLoading.value = true;
+    senderResendDelete(resendSender.value.senderIdentityId)
+        .then(() => {
+          updateResendSender({
+            ...resendSender.value,
+            resendConfigured: false,
+            resendTokenMasked: '',
+            resendStatus: 'not_configured',
+            resendReady: false,
+            resendLastCheckTime: null,
+            resendLastError: ''
+          });
+          loadData();
+          ElMessage({message: t('resendRemoved'), type: 'success'});
+        })
+        .finally(() => {
+          resendLoading.value = false;
+        });
+  });
+}
+
+function resetResendForm() {
+  resendSender.value = null;
+  resendForm.token = '';
+  resendForm.recipient = '';
 }
 
 function removeSender(senderIdentityId) {
@@ -645,9 +877,14 @@ function resetSmtpPassword(row) {
 }
 
 function provisionSenderSmtp(row) {
+  if (!canConfigureSmtp(row)) {
+    openResendOnboarding(row);
+    return;
+  }
   smtpAccountProvisionSender(row.senderIdentityId, `SMTP ${row.email}`)
       .then(data => {
         createdSmtp.value = data || {};
+        resendDialog.value = false;
         createdSmtpDialog.value = true;
         loadData();
       });
@@ -896,6 +1133,101 @@ pre {
   }
 }
 
+.resend-steps {
+  margin-bottom: 20px;
+}
+
+.resend-quota-alert {
+  margin-bottom: 12px;
+}
+
+.resend-guide {
+  display: grid;
+  gap: 12px;
+  max-height: 58vh;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.resend-guide-card {
+  padding: 14px;
+  border: 1px solid var(--sm-border);
+  border-radius: 8px;
+  background: var(--sm-card);
+
+  p {
+    margin: 8px 0 12px;
+    color: var(--sm-muted-foreground);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  ol {
+    margin: 8px 0 12px;
+    padding-left: 20px;
+    color: var(--sm-muted-foreground);
+    font-size: 13px;
+    line-height: 1.8;
+  }
+}
+
+.resend-guide-title,
+.resend-dialog-actions,
+.resend-links,
+.resend-inline-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.resend-guide-title,
+.resend-dialog-actions {
+  justify-content: space-between;
+}
+
+.resend-links {
+  flex-wrap: wrap;
+}
+
+.resend-inline-form {
+  margin-bottom: 12px;
+
+  .el-button {
+    flex: none;
+  }
+}
+
+.resend-dns-grid {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+
+  span {
+    color: var(--sm-muted-foreground);
+    font-size: 12px;
+  }
+
+  code {
+    overflow: hidden;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--sm-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.resend-dialog-actions {
+  margin-top: 16px;
+}
+
+.resend-check-time {
+  margin-bottom: 0 !important;
+  font-size: 12px !important;
+}
+
 .limit-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -923,6 +1255,16 @@ pre {
   }
 
   .limit-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .resend-inline-form,
+  .resend-dialog-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .resend-dns-grid {
     grid-template-columns: 1fr;
   }
 }

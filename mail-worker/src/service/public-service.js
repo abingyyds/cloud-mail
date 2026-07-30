@@ -384,6 +384,7 @@ const publicService = {
 			mailType: params.mailType || emailConst.mailType.NORMAL,
 			attachments,
 			apiKeyId: params.apiKeyId || 0,
+			resendToken: params.resendToken || '',
 			fromEmail: params.trustedSenderIdentity ? params.fromEmail : accountRow.email,
 			accountEmail: params.trustedSenderIdentity ? params.accountEmail : accountRow.email
 		}, userRow.userId);

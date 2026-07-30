@@ -196,6 +196,33 @@ If Cloudflare Email Service or Resend is not available, configure SMTP in system
 - The SMTP credential is stored only on the backend; the frontend only shows whether it is configured
 - SMTP fallback is intended for verification codes, notifications, and automated emails; emails with attachments or embedded inline images should use Cloudflare Email Service or Resend
 
+## Bring Your Own Resend (BYOK)
+
+Custom-domain customers can configure external delivery themselves from **Developer → Sender Identity → Connect Resend**. The platform never asks for a Resend password or a Full Access API Key.
+
+Complete flow:
+
+1. Add a custom sender identity such as `notice@example.com`
+2. Add the `_smmails.example.com` TXT record and complete ownership verification
+3. Add `example.com` in [Resend Domains](https://resend.com/domains)
+4. Publish the SPF, DKIM, and Return-Path/MX records shown by Resend and wait for `Verified`
+5. Create an API Key in [Resend API Keys](https://resend.com/api-keys)
+   - Select `Sending access`
+   - Restrict it to the current domain when that option is available
+   - Never submit a Resend password or Full Access Key
+6. Paste the `re_...` API Key into SMmails; it is submitted only to the backend and is masked afterward
+7. Send an onboarding test to an address you own at Gmail, QQ, or Outlook
+8. SMTP account creation is enabled only after Resend accepts the test message
+9. Copy the one-time SMTP password and configure the customer product to use the platform Relay
+
+Delivery path:
+
+```text
+Customer product -- SMTP/API --> SMmails -- customer's Resend API Key --> Gmail/QQ/Outlook
+```
+
+Disconnecting Resend clears the stored Key and disables SMTP accounts linked to that sender identity. After rotating or revoking a Resend Key, bind the new Key and run the test again.
+
 ## Providing SMTP Accounts to Other Products
 
 Cloudflare Workers cannot listen on TCP ports 587/465, so the Worker cannot be used directly as an SMTP server. This repository includes an independent `mail-smtp` Relay:

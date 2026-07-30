@@ -14,6 +14,17 @@ const emailUtils = {
 		return parts.length === 2 ? parts[0] : '';
 	},
 
+	formatAddress(email, name = '') {
+		const address = String(email || '').replace(/[\r\n<>]/g, '').trim();
+		const displayName = String(name || '')
+			.replace(/[\u0000-\u001F\u007F]+/g, ' ')
+			.replace(/\s+/g, ' ')
+			.trim();
+		if (!displayName) return address;
+		const escapedName = displayName.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+		return `"${escapedName}" <${address}>`;
+	},
+
 	formatText(text) {
 		if (!text) return ''
 		return text

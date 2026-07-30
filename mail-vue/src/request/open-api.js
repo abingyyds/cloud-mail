@@ -72,6 +72,18 @@ export function senderVerify(senderIdentityId) {
     return http.put('/open/sender/verify', {senderIdentityId})
 }
 
+export function senderResendBind(senderIdentityId, token) {
+    return http.put('/open/sender/resend', {senderIdentityId, token})
+}
+
+export function senderResendTest(senderIdentityId, recipient) {
+    return http.post('/open/sender/resend/test', {senderIdentityId, recipient})
+}
+
+export function senderResendDelete(senderIdentityId) {
+    return http.delete('/open/sender/resend', {params: {senderIdentityId}})
+}
+
 export function openLogs(params) {
     return http.get('/open/logs', {params: {...params}})
 }

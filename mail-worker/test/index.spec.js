@@ -1,6 +1,14 @@
 import { env, SELF } from 'cloudflare:test';
 import { beforeEach, describe, expect, it } from 'vitest';
 import KvConst from '../src/const/kv-const';
+import emailUtils from '../src/utils/email-utils';
+
+describe('email address formatting', () => {
+	it('quotes names and removes header control characters', () => {
+		expect(emailUtils.formatAddress('notice@example.com', 'ACME "Ops"\r\nBcc: victim@example.com'))
+			.toBe('"ACME \\"Ops\\" Bcc: victim@example.com" <notice@example.com>');
+	});
+});
 
 describe('settings bootstrap', () => {
 	beforeEach(async () => {
@@ -19,6 +27,16 @@ describe('settings bootstrap', () => {
 		expect(body.code).toBe(200);
 		expect(body.data.title).toBe('Cloud Mail');
 		expect(await env.kv.get(KvConst.SETTING)).not.toBeNull();
+	});
+
+	it('creates customer Resend onboarding fields', async () => {
+		const result = await env.db.prepare("PRAGMA table_info('sender_identity')").all();
+		const columns = result.results.map(row => row.name);
+
+		expect(columns).toContain('resend_token');
+		expect(columns).toContain('resend_status');
+		expect(columns).toContain('resend_last_check_time');
+		expect(columns).toContain('resend_last_error');
 	});
 });
 

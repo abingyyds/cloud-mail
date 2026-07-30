@@ -1,5 +1,6 @@
 import { and, count, desc, eq, gt, sql } from 'drizzle-orm';
 import dayjs from 'dayjs';
+import { Resend } from 'resend';
 import BizError from '../error/biz-error';
 import orm from '../entity/orm';
 import apiKey from '../entity/api-key';
@@ -106,12 +107,49 @@ function maskKey(row) {
 	};
 }
 
+function customSenderResendReady(row) {
+	return row?.type !== senderIdentityConst.type.CUSTOM || (
+		!!row.resendToken && row.resendStatus === senderIdentityConst.resendStatus.VERIFIED
+	);
+}
+
+function maskResendToken(value) {
+	const token = String(value || '');
+	if (!token) return '';
+	if (token.length <= 12) return `${token.slice(0, 4)}******`;
+	return `${token.slice(0, 3)}******${token.slice(-4)}`;
+}
+
+function providerErrorMessage(error) {
+	return String(error?.message || error?.name || 'Resend 请求失败')
+		.replace(/re_[a-zA-Z0-9_-]+/g, 're_******')
+		.trim()
+		.slice(0, 500);
+}
+
+function escapeHtml(value = '') {
+	return String(value)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
 function maskSender(row) {
+	const { resendToken, ...safeRow } = row;
+	const resendStatus = row.type === senderIdentityConst.type.CUSTOM
+		? (row.resendStatus || senderIdentityConst.resendStatus.NOT_CONFIGURED)
+		: senderIdentityConst.resendStatus.VERIFIED;
 	return {
-		...row,
+		...safeRow,
 		dnsHost: row.type === senderIdentityConst.type.CUSTOM ? `_smmails.${row.domain}` : '',
 		dnsType: row.type === senderIdentityConst.type.CUSTOM ? 'TXT' : '',
-		dnsValue: row.type === senderIdentityConst.type.CUSTOM ? row.verifyToken : ''
+		dnsValue: row.type === senderIdentityConst.type.CUSTOM ? row.verifyToken : '',
+		resendConfigured: !!resendToken,
+		resendTokenMasked: maskResendToken(resendToken),
+		resendStatus,
+		resendReady: customSenderResendReady(row)
 	};
 }
 
@@ -377,6 +415,9 @@ const openApiService = {
 		if (!senderRow) {
 			throw new BizError('发信身份不存在、未验证或不属于当前用户');
 		}
+		if (!customSenderResendReady(senderRow)) {
+			throw new BizError('自定义域名尚未完成 Resend 接入测试，请先绑定 API Key 并发送测试邮件');
+		}
 		if (existing && existing.isDel === isDel.NORMAL) {
 			throw new BizError('SMTP 账号已存在');
 		}
@@ -503,6 +544,9 @@ const openApiService = {
 		if (!senderRow) {
 			throw new BizError('发信身份不存在、未验证或不属于当前用户');
 		}
+		if (!customSenderResendReady(senderRow)) {
+			throw new BizError('自定义域名尚未完成 Resend 接入测试，请先绑定 API Key 并发送测试邮件');
+		}
 
 		const apiKeyName = `SMTP ${senderRow.email}`.slice(0, 50);
 		let keyRow = await orm(c).select().from(apiKey).where(and(
@@ -567,6 +611,26 @@ const openApiService = {
 		if (![smtpAccountConst.status.OPEN, smtpAccountConst.status.CLOSE].includes(status)) {
 			throw new BizError('SMTP 账号状态无效');
 		}
+		if (status === smtpAccountConst.status.OPEN) {
+			const row = await orm(c).select({
+				account: smtpAccount,
+				sender: senderIdentity
+			}).from(smtpAccount)
+				.leftJoin(senderIdentity, eq(senderIdentity.senderIdentityId, smtpAccount.senderIdentityId))
+				.where(and(
+					eq(smtpAccount.smtpAccountId, smtpAccountId),
+					eq(smtpAccount.userId, userId),
+					eq(smtpAccount.isDel, isDel.NORMAL)
+				)).get();
+			const senderReady = row?.sender
+				&& row.sender.status === senderIdentityConst.status.OPEN
+				&& row.sender.verifyStatus === senderIdentityConst.verifyStatus.VERIFIED
+				&& row.sender.isDel === isDel.NORMAL
+				&& customSenderResendReady(row.sender);
+			if (!row?.account || !senderReady) {
+				throw new BizError('发信身份或 Resend 接入不可用，无法启用 SMTP 账号');
+			}
+		}
 		await orm(c).update(smtpAccount).set({ status })
 			.where(and(
 				eq(smtpAccount.smtpAccountId, smtpAccountId),
@@ -629,7 +693,7 @@ const openApiService = {
 				eq(smtpAccount.isDel, isDel.NORMAL)
 			)).get();
 
-		if (!row || !row.sender || !row.key || row.key.status !== apiKeyConst.status.OPEN || row.key.isDel === isDel.DELETE || row.sender.status !== senderIdentityConst.status.OPEN || row.sender.verifyStatus !== senderIdentityConst.verifyStatus.VERIFIED || row.sender.isDel === isDel.DELETE) {
+		if (!row || !row.sender || !row.key || row.key.status !== apiKeyConst.status.OPEN || row.key.isDel === isDel.DELETE || row.sender.status !== senderIdentityConst.status.OPEN || row.sender.verifyStatus !== senderIdentityConst.verifyStatus.VERIFIED || row.sender.isDel === isDel.DELETE || !customSenderResendReady(row.sender)) {
 			throw new BizError('SMTP 账号、API Key 或发信身份不可用', 535);
 		}
 
@@ -723,9 +787,23 @@ const openApiService = {
 	},
 
 	async senderDelete(c, params, userId) {
-		await orm(c).update(senderIdentity).set({ isDel: isDel.DELETE }).where(
-			and(eq(senderIdentity.senderIdentityId, Number(params.senderIdentityId)), eq(senderIdentity.userId, userId))
-		).run();
+		const senderIdentityId = Number(params.senderIdentityId);
+		await Promise.all([
+			orm(c).update(senderIdentity).set({
+				isDel: isDel.DELETE,
+				resendToken: '',
+				resendStatus: senderIdentityConst.resendStatus.NOT_CONFIGURED,
+				resendLastCheckTime: null,
+				resendLastError: ''
+			}).where(
+				and(eq(senderIdentity.senderIdentityId, senderIdentityId), eq(senderIdentity.userId, userId))
+			).run(),
+			orm(c).update(smtpAccount).set({ status: smtpAccountConst.status.CLOSE }).where(and(
+				eq(smtpAccount.userId, userId),
+				eq(smtpAccount.senderIdentityId, senderIdentityId),
+				eq(smtpAccount.isDel, isDel.NORMAL)
+			)).run()
+		]);
 	},
 
 	async senderSetStatus(c, params, userId) {
@@ -766,6 +844,176 @@ const openApiService = {
 		await orm(c).update(senderIdentity).set({
 			verifyStatus: senderIdentityConst.verifyStatus.VERIFIED
 		}).where(eq(senderIdentity.senderIdentityId, row.senderIdentityId)).run();
+	},
+
+	async senderResendBind(c, params, userId) {
+		const senderIdentityId = Number(params?.senderIdentityId);
+		const token = String(params?.token || '').trim();
+		const row = await orm(c).select().from(senderIdentity).where(and(
+			eq(senderIdentity.senderIdentityId, senderIdentityId),
+			eq(senderIdentity.userId, userId),
+			eq(senderIdentity.isDel, isDel.NORMAL)
+		)).get();
+
+		if (!row) {
+			throw new BizError('发信身份不存在');
+		}
+		if (row.type !== senderIdentityConst.type.CUSTOM) {
+			throw new BizError('平台邮箱使用平台发信通道，不需要绑定客户 Resend');
+		}
+		if (row.verifyStatus !== senderIdentityConst.verifyStatus.VERIFIED) {
+			throw new BizError('请先完成 _smmails DNS 所有权验证');
+		}
+		if (!/^re_[a-zA-Z0-9_-]{12,}$/.test(token) || token.length > 256) {
+			throw new BizError('Resend API Key 格式无效，请粘贴以 re_ 开头的完整 Key');
+		}
+
+		const result = await c.env.db.prepare(`
+			UPDATE sender_identity
+			SET resend_token = ?, resend_status = ?, resend_last_error = ''
+			WHERE sender_identity_id = ? AND user_id = ? AND is_del = ?
+		`).bind(
+			token,
+			senderIdentityConst.resendStatus.CONFIGURED,
+			senderIdentityId,
+			userId,
+			isDel.NORMAL
+		).run();
+		if (result.meta?.changes !== 1) {
+			throw new BizError('Resend API Key 保存失败，请重试');
+		}
+		const updated = await orm(c).select().from(senderIdentity)
+			.where(eq(senderIdentity.senderIdentityId, senderIdentityId)).get();
+
+		return maskSender(updated);
+	},
+
+	async senderResendTest(c, params, userId) {
+		const senderIdentityId = Number(params?.senderIdentityId);
+		const recipient = String(params?.recipient || '').trim().toLowerCase();
+		const row = await orm(c).select().from(senderIdentity).where(and(
+			eq(senderIdentity.senderIdentityId, senderIdentityId),
+			eq(senderIdentity.userId, userId),
+			eq(senderIdentity.isDel, isDel.NORMAL)
+		)).get();
+
+		if (!row || row.type !== senderIdentityConst.type.CUSTOM) {
+			throw new BizError('自定义发信身份不存在');
+		}
+		if (row.verifyStatus !== senderIdentityConst.verifyStatus.VERIFIED) {
+			throw new BizError('请先完成 _smmails DNS 所有权验证');
+		}
+		if (!row.resendToken) {
+			throw new BizError('请先绑定 Resend API Key');
+		}
+		if (!verifyUtils.isEmail(recipient)) {
+			throw new BizError(t('notEmail'));
+		}
+
+		const userRow = await userService.selectById(c, userId);
+		if (!userRow) {
+			throw new BizError(t('notExistUser'));
+		}
+		if (userRow.email !== c.env.admin) {
+			const roleRow = await roleService.selectById(c, userRow.type);
+			const sendRoleList = await roleService.selectByIdsHasPermKey(c, [userRow.type], 'email:send');
+			if (sendRoleList.length === 0 || !roleRow || ['ban', 'internal'].includes(roleRow.sendType)) {
+				throw new BizError('当前客户尚未开通站外发信权限，请联系平台管理员调整角色和额度', 403);
+			}
+		}
+
+		const now = dayjs();
+		if (row.resendLastCheckTime && now.diff(dayjs(row.resendLastCheckTime), 'second') < 30) {
+			throw new BizError('测试发送过于频繁，请 30 秒后再试');
+		}
+
+		await orm(c).update(senderIdentity).set({
+			resendLastCheckTime: now.toISOString(),
+			resendLastError: ''
+		}).where(eq(senderIdentity.senderIdentityId, senderIdentityId)).run();
+
+		const resend = new Resend(row.resendToken);
+		const subject = `SMmails Resend 接入测试 - ${row.domain}`;
+		const text = `这是一封 ${row.email} 的 Resend 接入测试邮件。收到此邮件表示域名、DNS 和 API Key 均可用于站外投递。`;
+		let data;
+		let error;
+		try {
+			({ data, error } = await resend.emails.send({
+				from: emailUtils.formatAddress(row.email, row.name),
+				to: [recipient],
+				subject,
+				text,
+				html: `<p>${escapeHtml(text)}</p><p>发信域名：<strong>${escapeHtml(row.domain)}</strong></p>`
+			}));
+		} catch (e) {
+			error = e;
+		}
+
+		if (error || !data?.id) {
+			error = error || new Error('Resend 未返回邮件 ID');
+			const message = providerErrorMessage(error);
+			await c.env.db.prepare(`
+				UPDATE sender_identity
+				SET resend_status = ?, resend_last_error = ?, resend_last_check_time = ?
+				WHERE sender_identity_id = ? AND resend_token = ?
+			`).bind(
+				senderIdentityConst.resendStatus.FAILED,
+				message,
+				now.toISOString(),
+				senderIdentityId,
+				row.resendToken
+			).run();
+			throw new BizError(`Resend 测试失败：${message}`);
+		}
+
+		const verifyResult = await c.env.db.prepare(`
+			UPDATE sender_identity
+			SET resend_status = ?, resend_last_error = '', resend_last_check_time = ?
+			WHERE sender_identity_id = ? AND resend_token = ?
+		`).bind(
+			senderIdentityConst.resendStatus.VERIFIED,
+			now.toISOString(),
+			senderIdentityId,
+			row.resendToken
+		).run();
+		if (verifyResult.meta?.changes !== 1) {
+			throw new BizError('Resend API Key 已被替换或解除，请使用当前 Key 重新发送测试');
+		}
+		const updated = await orm(c).select().from(senderIdentity)
+			.where(eq(senderIdentity.senderIdentityId, senderIdentityId)).get();
+
+		return {
+			sender: maskSender(updated),
+			resendEmailId: data?.id || '',
+			recipient
+		};
+	},
+
+	async senderResendDelete(c, params, userId) {
+		const senderIdentityId = Number(params?.senderIdentityId);
+		const row = await orm(c).select().from(senderIdentity).where(and(
+			eq(senderIdentity.senderIdentityId, senderIdentityId),
+			eq(senderIdentity.userId, userId),
+			eq(senderIdentity.isDel, isDel.NORMAL)
+		)).get();
+
+		if (!row || row.type !== senderIdentityConst.type.CUSTOM) {
+			throw new BizError('自定义发信身份不存在');
+		}
+
+		await Promise.all([
+			orm(c).update(senderIdentity).set({
+				resendToken: '',
+				resendStatus: senderIdentityConst.resendStatus.NOT_CONFIGURED,
+				resendLastCheckTime: null,
+				resendLastError: ''
+			}).where(eq(senderIdentity.senderIdentityId, senderIdentityId)).run(),
+			orm(c).update(smtpAccount).set({ status: smtpAccountConst.status.CLOSE }).where(and(
+				eq(smtpAccount.userId, userId),
+				eq(smtpAccount.senderIdentityId, senderIdentityId),
+				eq(smtpAccount.isDel, isDel.NORMAL)
+			)).run()
+		]);
 	},
 
 	async senderMarkVerified(c, params, userId) {
@@ -953,6 +1201,7 @@ const openApiService = {
 				...params,
 				fromEmail: senderRow.email,
 				fromName: params.fromName || params.name || senderRow.name,
+				resendToken: senderRow.type === senderIdentityConst.type.CUSTOM ? senderRow.resendToken : '',
 				deliveryAccountEmail,
 				accountEmail: senderRow.email,
 				senderUserId: keyRow.userId,
@@ -1041,6 +1290,9 @@ const openApiService = {
 
 		if (!row) {
 			throw new BizError('发信身份不存在或未验证', 403);
+		}
+		if (!customSenderResendReady(row)) {
+			throw new BizError('自定义域名尚未完成 Resend 接入测试', 403);
 		}
 
 		return row;

@@ -42,8 +42,26 @@ const dbInit = {
 		await this.v3_2DB(c);
 		await this.v3_3DB(c);
 		await this.v3_4DB(c);
+		await this.v3_5DB(c);
 		await settingService.refresh(c);
 		return c.text('success');
+	},
+
+	async v3_5DB(c) {
+		const SQL_LIST = [
+			`ALTER TABLE sender_identity ADD COLUMN resend_token TEXT NOT NULL DEFAULT '';`,
+			`ALTER TABLE sender_identity ADD COLUMN resend_status TEXT NOT NULL DEFAULT 'not_configured';`,
+			`ALTER TABLE sender_identity ADD COLUMN resend_last_check_time DATETIME;`,
+			`ALTER TABLE sender_identity ADD COLUMN resend_last_error TEXT NOT NULL DEFAULT '';`
+		];
+
+		await Promise.all(SQL_LIST.map(async (sql) => {
+			try {
+				await c.env.db.prepare(sql).run();
+			} catch (e) {
+				console.warn(`跳过客户 Resend 字段：${e.message}`);
+			}
+		}));
 	},
 
 	async v3_4DB(c) {
@@ -108,6 +126,10 @@ const dbInit = {
 				type TEXT NOT NULL DEFAULT 'platform',
 				verify_token TEXT NOT NULL DEFAULT '',
 				verify_status INTEGER NOT NULL DEFAULT 0,
+				resend_token TEXT NOT NULL DEFAULT '',
+				resend_status TEXT NOT NULL DEFAULT 'not_configured',
+				resend_last_check_time DATETIME,
+				resend_last_error TEXT NOT NULL DEFAULT '',
 				status INTEGER NOT NULL DEFAULT 0,
 				create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
 				is_del INTEGER NOT NULL DEFAULT 0

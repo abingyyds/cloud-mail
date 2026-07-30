@@ -93,6 +93,21 @@ app.put('/open/sender/verify', async (c) => {
 	return c.json(result.ok());
 });
 
+app.put('/open/sender/resend', async (c) => {
+	const data = await openApiService.senderResendBind(c, await c.req.json(), userContext.getUserId(c));
+	return c.json(result.ok(data));
+});
+
+app.post('/open/sender/resend/test', async (c) => {
+	const data = await openApiService.senderResendTest(c, await c.req.json(), userContext.getUserId(c));
+	return c.json(result.ok(data));
+});
+
+app.delete('/open/sender/resend', async (c) => {
+	await openApiService.senderResendDelete(c, c.req.query(), userContext.getUserId(c));
+	return c.json(result.ok());
+});
+
 app.put('/open/sender/adminVerify', async (c) => {
 	await openApiService.senderMarkVerified(c, await c.req.json(), userContext.getUserId(c));
 	return c.json(result.ok());

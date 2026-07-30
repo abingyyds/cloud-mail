@@ -37,6 +37,12 @@ export const senderIdentityConst = {
 		VERIFIED: 0,
 		PENDING: 1
 	},
+	resendStatus: {
+		NOT_CONFIGURED: 'not_configured',
+		CONFIGURED: 'configured',
+		VERIFIED: 'verified',
+		FAILED: 'failed'
+	},
 	type: {
 		PLATFORM: 'platform',
 		CUSTOM: 'custom'

@@ -203,6 +203,33 @@ curl -X POST https://你的域名/api/public/sendNotice \
 - SMTP 访问凭证只保存在后端，前端查询时仅显示已配置状态
 - SMTP 兜底适合验证码、通知和自动邮件；带附件或正文内嵌图片的邮件仍建议使用 Cloudflare Email Service 或 Resend
 
+## 客户自带 Resend（BYOK）
+
+自定义域名客户可以在 **开发者接入 → 发信身份 → Resend 接入** 中自行完成站外投递配置。平台不要求客户提供 Resend 登录密码，也不要求 Full Access API Key。
+
+完整流程：
+
+1. 客户添加自定义域名发信身份，例如 `notice@example.com`
+2. 客户在 DNS 添加 `_smmails.example.com` TXT，回到平台完成所有权验证
+3. 客户登录 [Resend Domains](https://resend.com/domains)，添加 `example.com`
+4. 客户按 Resend 页面配置 SPF、DKIM 和 Return-Path/MX，等待 Resend 域名状态变为 `Verified`
+5. 客户在 [Resend API Keys](https://resend.com/api-keys) 创建 API Key
+   - 权限选择 `Sending access`
+   - 如果 Resend 提供域名限制，只授权当前域名
+   - 不要提交 Resend 登录密码或 Full Access Key
+6. 客户回到平台粘贴 `re_...` API Key；明文只提交到后端，后续页面仅显示脱敏状态
+7. 客户填写自己的 Gmail、QQ 或 Outlook 地址发送接入测试
+8. 只有测试邮件被 Resend 接受后，该自定义域名才会标记为“Resend 已就绪”，并允许创建 SMTP 账号
+9. 客户复制一次性 SMTP 密码，在自己的产品中使用平台 Relay 发信
+
+实际链路：
+
+```text
+客户产品 -- SMTP/API --> SMmails -- 客户自己的 Resend API Key --> Gmail/QQ/Outlook
+```
+
+解除 Resend 接入会清除后端保存的 Key，并自动禁用该发信身份关联的 SMTP 账号。客户更换或撤销 Resend Key 后，应在平台重新绑定并发送测试邮件。
+
 ## 为其他产品提供 SMTP 账号
 
 Cloudflare Worker 不能监听 TCP 587/465，因此不能直接把 Worker 作为 SMTP 服务器。项目提供了独立的 `mail-smtp` Relay：

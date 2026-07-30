@@ -166,6 +166,7 @@ const emailService = {
 			mailType = emailConst.mailType.NORMAL, //邮件业务类型
 			attachments = [], //附件
 			apiKeyId = 0,
+			resendToken: senderResendToken = '',
 			fromEmail,
 			accountEmail
 		} = params;
@@ -255,7 +256,7 @@ const emailService = {
 		const deliveryAccountEmail = accountEmail || mailFromEmail;
 		const deliveryDomain = emailUtils.getDomain(deliveryAccountEmail);
 		const sameDeliveryAccount = deliveryAccountEmail.toLowerCase() === accountRow.email.toLowerCase();
-		const deliveryResendToken = resendTokens[deliveryDomain] || (sameDeliveryAccount ? resendToken : '');
+		const deliveryResendToken = senderResendToken || resendTokens[deliveryDomain] || (sameDeliveryAccount ? resendToken : '');
 
 		//如果接收方存在站外邮箱，又没有发信服务
 		if (!useCloudflareEmail && !deliveryResendToken && !useSmtp && !allInternal) {
@@ -464,7 +465,7 @@ const emailService = {
 		const resend = new Resend(resendToken);
 
 		const sendForm = {
-			from: `${params.name} <${params.accountEmail}>`,
+			from: emailUtils.formatAddress(params.accountEmail, params.name),
 			to: [...params.receiveEmail],
 			subject: params.subject,
 			text: params.text,
