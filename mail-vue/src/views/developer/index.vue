@@ -289,7 +289,8 @@
       </el-tab-pane>
     </el-tabs>
 
-    <el-dialog v-model="apiKeyDialog" :title="$t('createApiKey')" width="420px" @closed="resetApiKeyForm">
+    <el-dialog v-model="apiKeyDialog" :title="$t('createApiKey')" width="min(420px, calc(100vw - 32px))"
+               append-to-body @closed="resetApiKeyForm">
       <el-form label-position="top">
         <el-form-item :label="$t('apiKeyName')">
           <el-input v-model="apiKeyForm.name" :placeholder="$t('apiKeyName')"/>
@@ -311,7 +312,8 @@
       </el-button>
     </el-dialog>
 
-    <el-dialog v-model="quotaDialog" :title="$t('quota')" width="420px" @closed="resetQuotaForm">
+    <el-dialog v-model="quotaDialog" :title="$t('quota')" width="min(420px, calc(100vw - 32px))"
+               append-to-body @closed="resetQuotaForm">
       <el-form label-position="top">
         <el-form-item :label="$t('dailyLimit')">
           <el-input-number v-model="quotaForm.dayLimit" :min="0" :max="99999999" controls-position="right"/>
@@ -328,7 +330,7 @@
       </el-button>
     </el-dialog>
 
-    <el-dialog v-model="createdKeyDialog" :title="$t('apiKey')" width="560px">
+    <el-dialog v-model="createdKeyDialog" :title="$t('apiKey')" width="min(560px, calc(100vw - 32px))" append-to-body>
       <el-alert :title="$t('copyApiKeyWarning')" type="warning" :closable="false"/>
       <el-input class="secret-input" v-model="createdKey" readonly>
         <template #append>
@@ -337,7 +339,8 @@
       </el-input>
     </el-dialog>
 
-    <el-dialog v-model="senderDialog" :title="$t('addCustomDomain')" width="460px" @closed="resetSenderForm">
+    <el-dialog v-model="senderDialog" :title="$t('addCustomDomain')" width="min(460px, calc(100vw - 32px))"
+               append-to-body @closed="resetSenderForm">
       <el-alert :title="$t('senderDomainDialogDesc')" type="info" :closable="false" show-icon class="sender-domain-alert"/>
       <el-form label-position="top">
         <el-form-item :label="$t('senderDomainEmail')">
@@ -352,7 +355,8 @@
       </el-button>
     </el-dialog>
 
-    <el-dialog v-model="resendDialog" :title="$t('resendOnboardingTitle')" width="720px" @closed="resetResendForm">
+    <el-dialog v-model="resendDialog" :title="$t('resendOnboardingTitle')" width="min(720px, calc(100vw - 32px))"
+               append-to-body @closed="resetResendForm">
       <template v-if="resendSender">
         <el-steps :active="resendActiveStep" finish-status="success" align-center class="resend-steps">
           <el-step :title="$t('resendStepOwnership')"/>
@@ -456,7 +460,8 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="smtpDialog" :title="$t('createSmtpAccount')" width="460px" @closed="resetSmtpForm">
+    <el-dialog v-model="smtpDialog" :title="$t('createSmtpAccount')" width="min(460px, calc(100vw - 32px))"
+               append-to-body @closed="resetSmtpForm">
       <el-form label-position="top">
         <el-form-item :label="$t('smtpAccountName')">
           <el-input v-model="smtpForm.name" :placeholder="$t('smtpAccountNamePlaceholder')"/>
@@ -480,7 +485,7 @@
       </el-button>
     </el-dialog>
 
-    <el-dialog v-model="createdSmtpDialog" :title="$t('smtpCredentials')" width="560px">
+    <el-dialog v-model="createdSmtpDialog" :title="$t('smtpCredentials')" width="min(560px, calc(100vw - 32px))" append-to-body>
       <el-alert :title="$t('smtpPasswordOnceWarning')" type="warning" :closable="false"/>
       <div class="smtp-credential-grid">
         <span>{{ $t('smtpServer') }}</span><strong>{{ createdSmtp.account?.smtpServer || '-' }}</strong>
