@@ -19,6 +19,20 @@
       </div>
     </div>
 
+    <div class="domain-entry">
+      <div class="domain-entry-copy">
+        <Icon icon="fluent:globe-add-20-regular"/>
+        <div>
+          <strong>{{ $t('customDomainEntryTitle') }}</strong>
+          <span>{{ $t('customDomainEntryDesc') }}</span>
+        </div>
+      </div>
+      <el-button type="primary" @click="openSenderDialog">
+        <Icon icon="fluent:add-20-regular"/>
+        {{ $t('addCustomDomain') }}
+      </el-button>
+    </div>
+
     <el-tabs v-model="activeTab" class="developer-tabs" @tab-change="handleTabChange">
       <el-tab-pane :label="$t('apiKey')" name="keys">
         <section class="section">
@@ -63,16 +77,16 @@
         </section>
       </el-tab-pane>
 
-      <el-tab-pane :label="$t('senderIdentity')" name="senders">
+      <el-tab-pane :label="$t('senderDomainTab')" name="senders">
         <section class="section">
           <div class="section-head">
             <div>
-              <h2>{{ $t('senderIdentity') }}</h2>
+              <h2>{{ $t('senderDomainSection') }}</h2>
               <p>{{ $t('dnsVerifyTip') }} {{ $t('smtpCustomSenderTip') }}</p>
             </div>
-            <el-button type="primary" @click="senderDialog = true">
+            <el-button type="primary" @click="openSenderDialog">
               <Icon icon="fluent:mail-add-20-regular"/>
-              {{ $t('addSenderIdentity') }}
+              {{ $t('addCustomDomain') }}
             </el-button>
           </div>
 
@@ -323,10 +337,11 @@
       </el-input>
     </el-dialog>
 
-    <el-dialog v-model="senderDialog" :title="$t('addSenderIdentity')" width="420px" @closed="resetSenderForm">
+    <el-dialog v-model="senderDialog" :title="$t('addCustomDomain')" width="460px" @closed="resetSenderForm">
+      <el-alert :title="$t('senderDomainDialogDesc')" type="info" :closable="false" show-icon class="sender-domain-alert"/>
       <el-form label-position="top">
-        <el-form-item :label="$t('senderEmail')">
-          <el-input v-model="senderForm.email" :placeholder="$t('senderEmail')"/>
+        <el-form-item :label="$t('senderDomainEmail')">
+          <el-input v-model="senderForm.email" :placeholder="$t('senderDomainEmailPlaceholder')"/>
         </el-form-item>
         <el-form-item :label="$t('senderName')">
           <el-input v-model="senderForm.name" :placeholder="$t('senderName')"/>
@@ -483,7 +498,7 @@
 </template>
 
 <script setup>
-import {computed, onMounted, reactive, ref} from 'vue';
+import {computed, nextTick, onMounted, reactive, ref} from 'vue';
 import {
   apiKeyCreate,
   apiKeyDelete,
@@ -714,9 +729,12 @@ function removeApiKey(apiKeyId) {
 function createSender() {
   loading.value = true;
   senderCreate({...senderForm})
-      .then(() => {
+      .then(row => {
         senderDialog.value = false;
         loadData();
+        if (row?.type === 'custom') {
+          nextTick(() => openResendOnboarding(row));
+        }
       })
       .finally(() => {
         loading.value = false;
@@ -725,6 +743,11 @@ function createSender() {
 
 function setSenderStatus(row, status) {
   senderStatus(row.senderIdentityId, status).then(loadData);
+}
+
+function openSenderDialog() {
+  activeTab.value = 'senders';
+  senderDialog.value = true;
 }
 
 function verifySender(row) {
@@ -991,6 +1014,58 @@ function copy(value) {
   margin-bottom: 14px;
 }
 
+.domain-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--el-color-primary-light-7);
+  border-radius: 10px;
+  background: var(--el-color-primary-light-9);
+
+  .el-button {
+    flex: 0 0 auto;
+    gap: 6px;
+  }
+}
+
+.domain-entry-copy {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+
+  > .iconify {
+    flex: 0 0 auto;
+    color: var(--el-color-primary);
+    font-size: 28px;
+  }
+
+  strong,
+  span {
+    display: block;
+  }
+
+  strong {
+    color: var(--sm-foreground);
+    font-size: 15px;
+    line-height: 22px;
+  }
+
+  span {
+    margin-top: 2px;
+    color: var(--sm-muted-foreground);
+    font-size: 13px;
+    line-height: 20px;
+  }
+}
+
+.sender-domain-alert {
+  margin-bottom: 16px;
+}
+
 .metric {
   min-width: 0;
   padding: 14px;
@@ -1247,6 +1322,15 @@ pre {
 @media (max-width: 900px) {
   .overview {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .domain-entry {
+    align-items: stretch;
+    flex-direction: column;
+
+    .el-button {
+      width: 100%;
+    }
   }
 
   .section-head {
